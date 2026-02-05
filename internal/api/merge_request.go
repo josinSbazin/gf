@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 )
 
@@ -101,13 +102,43 @@ type MergeMRRequest struct {
 func (s *MergeRequestService) List(owner, project string, opts *MRListOptions) ([]MergeRequest, error) {
 	path := fmt.Sprintf("/project/%s/%s/merge-request/list", owner, project)
 
-	// TODO: Add query params for filtering
+	filterState := ""
+	if opts != nil {
+		filterState = opts.State
+
+		// API supports: MERGED, CANCELED (not OPEN)
+		// For "open" we fetch all and filter client-side
+		params := url.Values{}
+		switch opts.State {
+		case "merged":
+			params.Set("status", "MERGED")
+		case "closed":
+			params.Set("status", "CANCELED")
+		}
+		if q := params.Encode(); q != "" {
+			path += "?" + q
+		}
+	}
 
 	var resp MRListResponse
 	if err := s.client.Get(path, &resp); err != nil {
 		return nil, err
 	}
-	return resp.Embedded.MergeRequests, nil
+
+	mrs := resp.Embedded.MergeRequests
+
+	// Client-side filter for "open" (API doesn't support this filter)
+	if filterState == "open" {
+		filtered := make([]MergeRequest, 0)
+		for _, mr := range mrs {
+			if mr.Status.ID != "MERGED" && mr.Status.ID != "CANCELED" && mr.Status.ID != "CLOSED" {
+				filtered = append(filtered, mr)
+			}
+		}
+		mrs = filtered
+	}
+
+	return mrs, nil
 }
 
 // Get returns a specific merge request
