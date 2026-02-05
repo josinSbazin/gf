@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/josinSbazin/gf/internal/api"
 	"github.com/josinSbazin/gf/internal/browser"
 	"github.com/josinSbazin/gf/internal/config"
 	"github.com/josinSbazin/gf/internal/git"
+	"github.com/josinSbazin/gf/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -48,24 +48,9 @@ func newViewCmd() *cobra.Command {
 
 func runView(opts *viewOptions, id int) error {
 	// Get repository
-	var repo *git.Repository
-	var err error
-
-	if opts.repo != "" {
-		parts := strings.Split(opts.repo, "/")
-		if len(parts) != 2 {
-			return fmt.Errorf("invalid repository format, expected owner/name")
-		}
-		repo = &git.Repository{
-			Host:  config.DefaultHost(),
-			Owner: parts[0],
-			Name:  parts[1],
-		}
-	} else {
-		repo, err = git.DetectRepo()
-		if err != nil {
-			return fmt.Errorf("could not determine repository: %w", err)
-		}
+	repo, err := git.ResolveRepo(opts.repo, config.DefaultHost())
+	if err != nil {
+		return fmt.Errorf("could not determine repository: %w", err)
 	}
 
 	// Load config and create client
@@ -105,10 +90,10 @@ func runView(opts *viewOptions, id int) error {
 		pipeline.NormalizedStatus(),
 	)
 
-	fmt.Printf("Duration: %s\n", formatDuration(pipeline.Duration))
-	fmt.Printf("Started:  %s\n", formatRelativeTime(pipeline.CreatedAt.Time))
+	fmt.Printf("Duration: %s\n", output.FormatDuration(pipeline.Duration))
+	fmt.Printf("Started:  %s\n", output.FormatRelativeTime(pipeline.CreatedAt.Time))
 	if pipeline.FinishedAt != nil {
-		fmt.Printf("Finished: %s\n", formatRelativeTime(pipeline.FinishedAt.Time))
+		fmt.Printf("Finished: %s\n", output.FormatRelativeTime(pipeline.FinishedAt.Time))
 	}
 
 	// Print jobs
@@ -129,7 +114,7 @@ func runView(opts *viewOptions, id int) error {
 				job.Stage,
 				name,
 				status,
-				formatDuration(job.Duration),
+				output.FormatDuration(job.Duration),
 			)
 		}
 	}
@@ -148,24 +133,4 @@ func runView(opts *viewOptions, id int) error {
 	fmt.Printf("View in browser: %s\n", url)
 
 	return nil
-}
-
-func formatRelativeTime(t time.Time) string {
-	diff := time.Since(t)
-
-	switch {
-	case diff < time.Minute:
-		return "just now"
-	case diff < time.Hour:
-		mins := int(diff.Minutes())
-		return fmt.Sprintf("%d minutes ago", mins)
-	case diff < 24*time.Hour:
-		hours := int(diff.Hours())
-		return fmt.Sprintf("%d hours ago", hours)
-	case diff < 7*24*time.Hour:
-		days := int(diff.Hours() / 24)
-		return fmt.Sprintf("%d days ago", days)
-	default:
-		return t.Format("Jan 2, 2006")
-	}
 }

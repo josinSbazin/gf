@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -245,9 +246,18 @@ func StatusIcon(status string) string {
 	}
 }
 
+var (
+	noColorOnce   sync.Once
+	noColorCached bool
+)
+
 // NoColor returns true if color output should be disabled
+// Result is cached on first call for performance
 func NoColor() bool {
-	return os.Getenv("NO_COLOR") != ""
+	noColorOnce.Do(func() {
+		noColorCached = os.Getenv("NO_COLOR") != ""
+	})
+	return noColorCached
 }
 
 // StatusColor returns color for terminal output

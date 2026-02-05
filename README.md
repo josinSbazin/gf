@@ -54,6 +54,7 @@ gf auth status                     # Show current auth: user, host, token previe
 gf mr list                         # Open MRs in current repo
 gf mr list -s merged               # Filter: open | merged | closed | all
 gf mr list -L 50                   # Limit results (default: 30)
+gf mr list --json                  # Output as JSON (for scripting)
 
 gf mr view 12                      # Show MR #12 details
 gf mr view 12 -w                   # Open MR #12 in browser
@@ -156,6 +157,7 @@ gf pipeline watch 123 --exit-status || echo "Pipeline failed!"
 | `--repo` | `-R` | all | Repository `owner/name`, overrides git remote detection |
 | `--hostname` | `-H` | auth | GitFlic host (default: gitflic.ru) |
 | `--web` | `-w` | view | Open result in browser |
+| `--json` | | mr list | Output as JSON for scripting |
 | `--yes` | `-y` | merge | Skip confirmation prompt |
 | `--limit` | `-L` | list | Max number of results |
 | `--state` | `-s` | mr list | Filter: `open` `merged` `closed` `all` |
@@ -216,6 +218,7 @@ gf auth status                     # Текущий статус: пользов
 gf mr list                         # Открытые MR в текущем репозитории
 gf mr list -s merged               # Фильтр: open | merged | closed | all
 gf mr list -L 50                   # Лимит результатов (по умолчанию: 30)
+gf mr list --json                  # Вывод в JSON (для скриптов)
 
 gf mr view 12                      # Детали MR #12
 gf mr view 12 -w                   # Открыть MR #12 в браузере
@@ -318,6 +321,7 @@ gf pipeline watch 123 --exit-status || echo "Pipeline failed!"
 | `--repo` | `-R` | везде | Репозиторий `owner/name`, переопределяет автоопределение |
 | `--hostname` | `-H` | auth | Хост GitFlic (по умолчанию: gitflic.ru) |
 | `--web` | `-w` | view | Открыть в браузере |
+| `--json` | | mr list | Вывод в JSON для скриптов |
 | `--yes` | `-y` | merge | Пропустить подтверждение |
 | `--limit` | `-L` | list | Максимум результатов |
 | `--state` | `-s` | mr list | Фильтр: `open` `merged` `closed` `all` |

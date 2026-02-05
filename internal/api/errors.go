@@ -52,3 +52,38 @@ func IsForbidden(err error) bool {
 	}
 	return errors.Is(err, ErrForbidden)
 }
+
+// ExitError is returned when a command wants to exit with a specific code
+// This allows proper cleanup via defer statements
+type ExitError struct {
+	Code int
+}
+
+func (e *ExitError) Error() string {
+	return fmt.Sprintf("exit status %d", e.Code)
+}
+
+// NewExitError creates an ExitError with the given code
+func NewExitError(code int) *ExitError {
+	return &ExitError{Code: code}
+}
+
+// GetExitCode returns the exit code if err is an ExitError, otherwise 1
+func GetExitCode(err error) int {
+	var exitErr *ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.Code
+	}
+	return 1
+}
+
+// IsExitError returns true if the error is an ExitError
+func IsExitError(err error) bool {
+	var exitErr *ExitError
+	return errors.As(err, &exitErr)
+}
+
+// IsNetworkError returns true if the error is a retryable network error
+func IsNetworkError(err error) bool {
+	return errors.Is(err, ErrNetwork)
+}

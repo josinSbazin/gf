@@ -12,6 +12,7 @@ import (
 	"github.com/josinSbazin/gf/internal/api"
 	"github.com/josinSbazin/gf/internal/config"
 	"github.com/josinSbazin/gf/internal/git"
+	"github.com/josinSbazin/gf/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -55,24 +56,9 @@ func newWatchCmd() *cobra.Command {
 
 func runWatch(opts *watchOptions, id int) error {
 	// Get repository
-	var repo *git.Repository
-	var err error
-
-	if opts.repo != "" {
-		parts := strings.Split(opts.repo, "/")
-		if len(parts) != 2 {
-			return fmt.Errorf("invalid repository format, expected owner/name")
-		}
-		repo = &git.Repository{
-			Host:  config.DefaultHost(),
-			Owner: parts[0],
-			Name:  parts[1],
-		}
-	} else {
-		repo, err = git.DetectRepo()
-		if err != nil {
-			return fmt.Errorf("could not determine repository: %w", err)
-		}
+	repo, err := git.ResolveRepo(opts.repo, config.DefaultHost())
+	if err != nil {
+		return fmt.Errorf("could not determine repository: %w", err)
 	}
 
 	// Load config and create client
@@ -168,7 +154,7 @@ func displayPipeline(client *api.Client, repo *git.Repository, id int) (string, 
 			api.ColorReset(),
 			job.Name,
 			status,
-			formatDuration(job.Duration),
+			output.FormatDuration(job.Duration),
 		)
 	}
 
@@ -199,9 +185,8 @@ func exitWithStatus(status string, useExitStatus bool) error {
 
 	switch status {
 	case "success", "passed":
-		os.Exit(0)
+		return api.NewExitError(0)
 	default:
-		os.Exit(1)
+		return api.NewExitError(1)
 	}
-	return nil
 }

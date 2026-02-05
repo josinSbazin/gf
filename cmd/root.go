@@ -8,6 +8,7 @@ import (
 	"github.com/josinSbazin/gf/cmd/mr"
 	"github.com/josinSbazin/gf/cmd/pipeline"
 	"github.com/josinSbazin/gf/cmd/repo"
+	"github.com/josinSbazin/gf/internal/api"
 	"github.com/josinSbazin/gf/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -25,6 +26,11 @@ Get started by running:
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
+		// ExitError is used when a command wants to exit with specific code
+		// (e.g., pipeline watch --exit-status). Don't print these as errors.
+		if api.IsExitError(err) {
+			os.Exit(api.GetExitCode(err))
+		}
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

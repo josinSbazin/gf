@@ -1,13 +1,14 @@
 package mr
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/josinSbazin/gf/internal/api"
 	"github.com/josinSbazin/gf/internal/config"
 	"github.com/josinSbazin/gf/internal/git"
+	"github.com/josinSbazin/gf/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -48,24 +49,9 @@ func newListCmd() *cobra.Command {
 
 func runList(opts *listOptions) error {
 	// Get repository
-	var repo *git.Repository
-	var err error
-
-	if opts.repo != "" {
-		parts := strings.Split(opts.repo, "/")
-		if len(parts) != 2 {
-			return fmt.Errorf("invalid repository format, expected owner/name")
-		}
-		repo = &git.Repository{
-			Host:  config.DefaultHost(),
-			Owner: parts[0],
-			Name:  parts[1],
-		}
-	} else {
-		repo, err = git.DetectRepo()
-		if err != nil {
-			return fmt.Errorf("could not determine repository: %w\nUse --repo owner/name to specify", err)
-		}
+	repo, err := git.ResolveRepo(opts.repo, config.DefaultHost())
+	if err != nil {
+		return fmt.Errorf("could not determine repository: %w\nUse --repo owner/name to specify", err)
 	}
 
 	// Load config and create client
@@ -89,8 +75,27 @@ func runList(opts *listOptions) error {
 		return fmt.Errorf("failed to list merge requests: %w", err)
 	}
 
+	// Apply limit
+	if opts.limit > 0 && len(mrs) > opts.limit {
+		mrs = mrs[:opts.limit]
+	}
+
 	if len(mrs) == 0 {
+		if opts.json {
+			fmt.Println("[]")
+			return nil
+		}
 		fmt.Printf("No %s merge requests in %s\n", opts.state, repo.FullName())
+		return nil
+	}
+
+	// JSON output
+	if opts.json {
+		data, err := json.MarshalIndent(mrs, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(data))
 		return nil
 	}
 
@@ -112,7 +117,7 @@ func runList(opts *listOptions) error {
 			branch = branch[:17] + "..."
 		}
 
-		updated := formatRelativeTime(mr.UpdatedAt)
+		updated := output.FormatRelativeTime(mr.UpdatedAt)
 
 		fmt.Printf("#%-5d %-50s %-20s @%-11s %s\n",
 			mr.LocalID,
@@ -124,24 +129,4 @@ func runList(opts *listOptions) error {
 	}
 
 	return nil
-}
-
-func formatRelativeTime(t time.Time) string {
-	diff := time.Since(t)
-
-	switch {
-	case diff < time.Minute:
-		return "just now"
-	case diff < time.Hour:
-		mins := int(diff.Minutes())
-		return fmt.Sprintf("%dm ago", mins)
-	case diff < 24*time.Hour:
-		hours := int(diff.Hours())
-		return fmt.Sprintf("%dh ago", hours)
-	case diff < 7*24*time.Hour:
-		days := int(diff.Hours() / 24)
-		return fmt.Sprintf("%dd ago", days)
-	default:
-		return t.Format("Jan 2")
-	}
 }

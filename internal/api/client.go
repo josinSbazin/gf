@@ -2,11 +2,20 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/josinSbazin/gf/internal/version"
+)
+
+const (
+	maxRetries    = 3
+	retryBaseWait = 500 * time.Millisecond
 )
 
 // Client is the GitFlic API client
@@ -29,29 +38,78 @@ func NewClient(baseURL, token string) *Client {
 
 // REST performs an HTTP request and decodes the JSON response
 func (c *Client) REST(method, path string, body, out any) error {
-	var bodyReader io.Reader
+	return c.RESTWithContext(context.Background(), method, path, body, out)
+}
+
+// RESTWithContext performs an HTTP request with context support for cancellation
+// Includes automatic retry with exponential backoff for network errors
+func (c *Client) RESTWithContext(ctx context.Context, method, path string, body, out any) error {
+	var bodyData []byte
 	if body != nil {
 		data, err := json.Marshal(body)
 		if err != nil {
 			return fmt.Errorf("failed to marshal request body: %w", err)
 		}
-		bodyReader = bytes.NewReader(data)
+		bodyData = data
 	}
 
 	url := c.BaseURL + path
-	req, err := http.NewRequest(method, url, bodyReader)
+	var lastErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		// Wait before retry (skip on first attempt)
+		if attempt > 0 {
+			wait := retryBaseWait * time.Duration(1<<(attempt-1)) // exponential backoff
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(wait):
+			}
+		}
+
+		err := c.doRequest(ctx, method, url, bodyData, out)
+		if err == nil {
+			return nil
+		}
+
+		// Only retry on network errors, not HTTP errors
+		if !isNetworkError(err) {
+			return err
+		}
+
+		lastErr = err
+	}
+
+	return lastErr
+}
+
+// doRequest performs a single HTTP request
+func (c *Client) doRequest(ctx context.Context, method, url string, bodyData []byte, out any) error {
+	var bodyReader io.Reader
+	if bodyData != nil {
+		bodyReader = bytes.NewReader(bodyData)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "gf-cli/"+version.Version)
 	if c.Token != "" {
 		req.Header.Set("Authorization", "token "+c.Token)
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		if ctx.Err() == context.Canceled {
+			return context.Canceled
+		}
+		if ctx.Err() == context.DeadlineExceeded {
+			return context.DeadlineExceeded
+		}
 		return fmt.Errorf("%w: %v", ErrNetwork, err)
 	}
 	defer func() {
@@ -72,14 +130,29 @@ func (c *Client) REST(method, path string, body, out any) error {
 	return nil
 }
 
+// isNetworkError returns true if the error is a retryable network error
+func isNetworkError(err error) bool {
+	return errors.Is(err, ErrNetwork)
+}
+
 // Get performs a GET request
 func (c *Client) Get(path string, out any) error {
 	return c.REST(http.MethodGet, path, nil, out)
 }
 
+// GetWithContext performs a GET request with context
+func (c *Client) GetWithContext(ctx context.Context, path string, out any) error {
+	return c.RESTWithContext(ctx, http.MethodGet, path, nil, out)
+}
+
 // Post performs a POST request
 func (c *Client) Post(path string, body, out any) error {
 	return c.REST(http.MethodPost, path, body, out)
+}
+
+// PostWithContext performs a POST request with context
+func (c *Client) PostWithContext(ctx context.Context, path string, body, out any) error {
+	return c.RESTWithContext(ctx, http.MethodPost, path, body, out)
 }
 
 // Put performs a PUT request

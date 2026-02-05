@@ -9,6 +9,7 @@ import (
 	"github.com/josinSbazin/gf/internal/browser"
 	"github.com/josinSbazin/gf/internal/config"
 	"github.com/josinSbazin/gf/internal/git"
+	"github.com/josinSbazin/gf/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -47,24 +48,9 @@ func newViewCmd() *cobra.Command {
 
 func runView(opts *viewOptions, id int) error {
 	// Get repository
-	var repo *git.Repository
-	var err error
-
-	if opts.repo != "" {
-		parts := strings.Split(opts.repo, "/")
-		if len(parts) != 2 {
-			return fmt.Errorf("invalid repository format, expected owner/name")
-		}
-		repo = &git.Repository{
-			Host:  config.DefaultHost(),
-			Owner: parts[0],
-			Name:  parts[1],
-		}
-	} else {
-		repo, err = git.DetectRepo()
-		if err != nil {
-			return fmt.Errorf("could not determine repository: %w", err)
-		}
+	repo, err := git.ResolveRepo(opts.repo, config.DefaultHost())
+	if err != nil {
+		return fmt.Errorf("could not determine repository: %w", err)
 	}
 
 	// Load config and create client
@@ -120,8 +106,8 @@ func runView(opts *viewOptions, id int) error {
 		fmt.Println("⚠ This merge request has conflicts")
 	}
 
-	fmt.Printf("Created:  %s\n", formatRelativeTime(mr.CreatedAt))
-	fmt.Printf("Updated:  %s\n", formatRelativeTime(mr.UpdatedAt))
+	fmt.Printf("Created:  %s\n", output.FormatRelativeTime(mr.CreatedAt))
+	fmt.Printf("Updated:  %s\n", output.FormatRelativeTime(mr.UpdatedAt))
 
 	fmt.Println()
 

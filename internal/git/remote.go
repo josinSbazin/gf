@@ -17,6 +17,9 @@ var (
 // validNameRegex validates owner/project names to prevent path traversal
 var validNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][-a-zA-Z0-9_.]*$`)
 
+// validHostRegex validates hostname format
+var validHostRegex = regexp.MustCompile(`^[a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9]$`)
+
 // ValidateName checks if owner/project name is safe
 func ValidateName(name string) error {
 	if name == "" || name == "." || name == ".." {
@@ -27,6 +30,24 @@ func ValidateName(name string) error {
 	}
 	if !validNameRegex.MatchString(name) {
 		return ErrInvalidName
+	}
+	return nil
+}
+
+// ValidateHost checks if hostname is valid
+func ValidateHost(host string) error {
+	if host == "" || host == "." || host == ".." {
+		return errors.New("invalid hostname")
+	}
+	if strings.HasPrefix(host, "-") || strings.HasPrefix(host, ".") {
+		return errors.New("invalid hostname")
+	}
+	// Must contain a dot (domain) or be "localhost"
+	if !strings.Contains(host, ".") && host != "localhost" {
+		return errors.New("invalid hostname")
+	}
+	if !validHostRegex.MatchString(host) {
+		return errors.New("invalid hostname")
 	}
 	return nil
 }
@@ -76,6 +97,9 @@ func parseRepoString(s string) (*Repository, error) {
 			Name:  parts[1],
 		}, nil
 	case 3:
+		if err := ValidateHost(parts[0]); err != nil {
+			return nil, errors.New("invalid hostname")
+		}
 		if err := ValidateName(parts[1]); err != nil {
 			return nil, errors.New("invalid owner name")
 		}
@@ -152,6 +176,55 @@ func CurrentBranch() (string, error) {
 		return "", ErrNotGitRepo
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+// ResolveRepo resolves repository from --repo flag or git remote detection
+// This is the single entry point for all commands to get repository info
+func ResolveRepo(repoFlag string, defaultHost string) (*Repository, error) {
+	if repoFlag != "" {
+		return ParseRepoFlag(repoFlag, defaultHost)
+	}
+	return DetectRepo()
+}
+
+// ParseRepoFlag parses --repo flag value with validation
+func ParseRepoFlag(repoFlag string, defaultHost string) (*Repository, error) {
+	if defaultHost == "" {
+		defaultHost = "gitflic.ru"
+	}
+
+	parts := strings.Split(repoFlag, "/")
+	switch len(parts) {
+	case 2:
+		if err := ValidateName(parts[0]); err != nil {
+			return nil, errors.New("invalid owner name")
+		}
+		if err := ValidateName(parts[1]); err != nil {
+			return nil, errors.New("invalid repository name")
+		}
+		return &Repository{
+			Host:  defaultHost,
+			Owner: parts[0],
+			Name:  parts[1],
+		}, nil
+	case 3:
+		if err := ValidateHost(parts[0]); err != nil {
+			return nil, errors.New("invalid hostname")
+		}
+		if err := ValidateName(parts[1]); err != nil {
+			return nil, errors.New("invalid owner name")
+		}
+		if err := ValidateName(parts[2]); err != nil {
+			return nil, errors.New("invalid repository name")
+		}
+		return &Repository{
+			Host:  parts[0],
+			Owner: parts[1],
+			Name:  parts[2],
+		}, nil
+	default:
+		return nil, errors.New("invalid repository format, expected owner/repo or host/owner/repo")
+	}
 }
 
 // DefaultBranch returns the default branch (main or master)

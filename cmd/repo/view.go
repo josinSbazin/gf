@@ -2,7 +2,6 @@ package repo
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/josinSbazin/gf/internal/api"
 	"github.com/josinSbazin/gf/internal/browser"
@@ -44,24 +43,9 @@ func newViewCmd() *cobra.Command {
 
 func runView(opts *viewOptions) error {
 	// Get repository
-	var repo *git.Repository
-	var err error
-
-	if opts.repo != "" {
-		parts := strings.Split(opts.repo, "/")
-		if len(parts) != 2 {
-			return fmt.Errorf("invalid repository format, expected owner/name")
-		}
-		repo = &git.Repository{
-			Host:  config.DefaultHost(),
-			Owner: parts[0],
-			Name:  parts[1],
-		}
-	} else {
-		repo, err = git.DetectRepo()
-		if err != nil {
-			return fmt.Errorf("could not determine repository: %w\nUse 'gf repo view owner/name' to specify", err)
-		}
+	repo, err := git.ResolveRepo(opts.repo, config.DefaultHost())
+	if err != nil {
+		return fmt.Errorf("could not determine repository: %w\nUse 'gf repo view owner/name' to specify", err)
 	}
 
 	// Load config and create client

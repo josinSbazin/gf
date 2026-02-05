@@ -7,6 +7,7 @@ import (
 	"github.com/josinSbazin/gf/internal/api"
 	"github.com/josinSbazin/gf/internal/config"
 	"github.com/josinSbazin/gf/internal/git"
+	"github.com/josinSbazin/gf/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -40,24 +41,9 @@ func newListCmd() *cobra.Command {
 
 func runList(opts *listOptions) error {
 	// Get repository
-	var repo *git.Repository
-	var err error
-
-	if opts.repo != "" {
-		parts := strings.Split(opts.repo, "/")
-		if len(parts) != 2 {
-			return fmt.Errorf("invalid repository format, expected owner/name")
-		}
-		repo = &git.Repository{
-			Host:  config.DefaultHost(),
-			Owner: parts[0],
-			Name:  parts[1],
-		}
-	} else {
-		repo, err = git.DetectRepo()
-		if err != nil {
-			return fmt.Errorf("could not determine repository: %w\nUse --repo owner/name to specify", err)
-		}
+	repo, err := git.ResolveRepo(opts.repo, config.DefaultHost())
+	if err != nil {
+		return fmt.Errorf("could not determine repository: %w\nUse --repo owner/name to specify", err)
 	}
 
 	// Load config and create client
@@ -101,8 +87,8 @@ func runList(opts *listOptions) error {
 			branch = branch[:22] + "..."
 		}
 
-		duration := formatDuration(p.Duration)
-		updated := formatRelativeTime(p.CreatedAt.Time)
+		duration := output.FormatDuration(p.Duration)
+		updated := output.FormatRelativeTime(p.CreatedAt.Time)
 
 		fmt.Printf("#%-5d %-10s %-25s %-10s %-10s %s\n",
 			p.LocalID,
@@ -115,16 +101,4 @@ func runList(opts *listOptions) error {
 	}
 
 	return nil
-}
-
-func formatDuration(seconds int) string {
-	if seconds == 0 {
-		return "-"
-	}
-	if seconds < 60 {
-		return fmt.Sprintf("%ds", seconds)
-	}
-	mins := seconds / 60
-	secs := seconds % 60
-	return fmt.Sprintf("%dm %ds", mins, secs)
 }
