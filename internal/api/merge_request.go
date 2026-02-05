@@ -93,7 +93,7 @@ type ProjectRef struct {
 // CreateMRRequest specifies the parameters for creating a merge request
 type CreateMRRequest struct {
 	Title              string     `json:"title"`
-	Description        string     `json:"description,omitempty"`
+	Description        string     `json:"description"` // Required by GitFlic API
 	SourceBranch       BranchRef  `json:"sourceBranch"`
 	TargetBranch       BranchRef  `json:"targetBranch"`
 	SourceProject      ProjectRef `json:"sourceProject"`

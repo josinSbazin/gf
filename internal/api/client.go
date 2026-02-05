@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/josinSbazin/gf/internal/version"
@@ -102,6 +103,14 @@ func (c *Client) doRequest(ctx context.Context, method, url string, bodyData []b
 		req.Header.Set("Authorization", "token "+c.Token)
 	}
 
+	// Debug mode: print request details
+	if os.Getenv("GF_DEBUG") != "" {
+		fmt.Fprintf(os.Stderr, "[DEBUG] %s %s\n", method, url)
+		if bodyData != nil {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Request body: %s\n", string(bodyData))
+		}
+	}
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		if ctx.Err() == context.Canceled {
@@ -118,6 +127,14 @@ func (c *Client) doRequest(ctx context.Context, method, url string, bodyData []b
 	}()
 
 	if resp.StatusCode >= 400 {
+		// Debug mode: print response details on error
+		if os.Getenv("GF_DEBUG") != "" {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			fmt.Fprintf(os.Stderr, "[DEBUG] Response status: %d\n", resp.StatusCode)
+			fmt.Fprintf(os.Stderr, "[DEBUG] Response body: %s\n", string(bodyBytes))
+			// Reset body for handleError
+			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
 		return c.handleError(resp)
 	}
 
