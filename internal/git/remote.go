@@ -68,7 +68,8 @@ func (r *Repository) FullName() string {
 func DetectRepo() (*Repository, error) {
 	// Check environment variable first
 	if repo := os.Getenv("GF_REPO"); repo != "" {
-		return parseRepoString(repo)
+		// Use ParseRepoFlag with default host for GF_REPO parsing
+		return ParseRepoFlag(repo, "gitflic.ru")
 	}
 
 	// Try to get from git remote
@@ -78,42 +79,6 @@ func DetectRepo() (*Repository, error) {
 	}
 
 	return parseRemoteURL(strings.TrimSpace(string(output)))
-}
-
-// parseRepoString parses "owner/repo" or "host/owner/repo" format
-func parseRepoString(s string) (*Repository, error) {
-	parts := strings.Split(s, "/")
-	switch len(parts) {
-	case 2:
-		if err := ValidateName(parts[0]); err != nil {
-			return nil, errors.New("invalid owner name")
-		}
-		if err := ValidateName(parts[1]); err != nil {
-			return nil, errors.New("invalid repository name")
-		}
-		return &Repository{
-			Host:  "gitflic.ru",
-			Owner: parts[0],
-			Name:  parts[1],
-		}, nil
-	case 3:
-		if err := ValidateHost(parts[0]); err != nil {
-			return nil, errors.New("invalid hostname")
-		}
-		if err := ValidateName(parts[1]); err != nil {
-			return nil, errors.New("invalid owner name")
-		}
-		if err := ValidateName(parts[2]); err != nil {
-			return nil, errors.New("invalid repository name")
-		}
-		return &Repository{
-			Host:  parts[0],
-			Owner: parts[1],
-			Name:  parts[2],
-		}, nil
-	default:
-		return nil, errors.New("invalid repository format, expected owner/repo or host/owner/repo")
-	}
 }
 
 // Pre-compiled regexes for remote URL parsing (performance optimization)

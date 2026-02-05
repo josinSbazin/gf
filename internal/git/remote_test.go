@@ -24,43 +24,55 @@ func TestRepository_FullName(t *testing.T) {
 	}
 }
 
-func TestParseRepoString(t *testing.T) {
+func TestParseRepoFlag(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		want    *Repository
-		wantErr bool
+		name        string
+		input       string
+		defaultHost string
+		want        *Repository
+		wantErr     bool
 	}{
 		{
-			name:  "owner/repo",
-			input: "uply-dev/backend",
-			want:  &Repository{Host: "gitflic.ru", Owner: "uply-dev", Name: "backend"},
+			name:        "owner/repo with default host",
+			input:       "uply-dev/backend",
+			defaultHost: "gitflic.ru",
+			want:        &Repository{Host: "gitflic.ru", Owner: "uply-dev", Name: "backend"},
 		},
 		{
-			name:  "host/owner/repo",
-			input: "git.company.com/org/project",
-			want:  &Repository{Host: "git.company.com", Owner: "org", Name: "project"},
+			name:        "owner/repo with custom default host",
+			input:       "uply-dev/backend",
+			defaultHost: "custom.host.com",
+			want:        &Repository{Host: "custom.host.com", Owner: "uply-dev", Name: "backend"},
 		},
 		{
-			name:    "single part",
-			input:   "just-repo",
-			wantErr: true,
+			name:        "host/owner/repo overrides default",
+			input:       "git.company.com/org/project",
+			defaultHost: "gitflic.ru",
+			want:        &Repository{Host: "git.company.com", Owner: "org", Name: "project"},
 		},
 		{
-			name:    "too many parts",
-			input:   "a/b/c/d",
-			wantErr: true,
+			name:        "single part",
+			input:       "just-repo",
+			defaultHost: "gitflic.ru",
+			wantErr:     true,
 		},
 		{
-			name:    "empty",
-			input:   "",
-			wantErr: true,
+			name:        "too many parts",
+			input:       "a/b/c/d",
+			defaultHost: "gitflic.ru",
+			wantErr:     true,
+		},
+		{
+			name:        "empty",
+			input:       "",
+			defaultHost: "gitflic.ru",
+			wantErr:     true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseRepoString(tt.input)
+			got, err := ParseRepoFlag(tt.input, tt.defaultHost)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("expected error but got nil")
@@ -260,21 +272,21 @@ func TestValidateName(t *testing.T) {
 	}
 }
 
-func TestParseRepoString_PathTraversal(t *testing.T) {
+func TestParseRepoFlag_PathTraversal(t *testing.T) {
 	// These should all fail due to path traversal protection
 	tests := []string{
-		"../passwd",          // owner = "..", name = "passwd"
-		"..%2Fetc/passwd",    // URL encoded
-		"owner/..%2Fetc",     // URL encoded in name
-		"host/../repo",       // ".." as owner
-		"host/owner/..",      // ".." as name
+		"../passwd",       // owner = "..", name = "passwd"
+		"..%2Fetc/passwd", // URL encoded
+		"owner/..%2Fetc",  // URL encoded in name
+		"host/../repo",    // ".." as owner
+		"host/owner/..",   // ".." as name
 	}
 
 	for _, input := range tests {
 		t.Run(input, func(t *testing.T) {
-			_, err := parseRepoString(input)
+			_, err := ParseRepoFlag(input, "gitflic.ru")
 			if err == nil {
-				t.Errorf("parseRepoString(%q) should return error for path traversal", input)
+				t.Errorf("ParseRepoFlag(%q) should return error for path traversal", input)
 			}
 		})
 	}

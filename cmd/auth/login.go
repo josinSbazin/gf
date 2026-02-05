@@ -84,6 +84,11 @@ func runLogin(opts *loginOptions) error {
 		return fmt.Errorf("token cannot be empty")
 	}
 
+	// Warn about internal/private hostnames (but allow for self-hosted instances)
+	if config.IsInternalHost(opts.hostname) {
+		fmt.Fprintf(os.Stderr, "Warning: %s resolves to an internal IP address\n", opts.hostname)
+	}
+
 	// Verify token by calling /user/me
 	baseURL := config.BaseURL(opts.hostname)
 	client := api.NewClient(baseURL, token)

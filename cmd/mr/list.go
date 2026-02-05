@@ -12,6 +12,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Table display constants
+const (
+	maxTitleLen  = 47 // Max characters for title column before truncation
+	maxBranchLen = 17 // Max characters for branch column before truncation
+	tableWidth   = 100
+)
+
 type listOptions struct {
 	state  string
 	limit  int
@@ -104,17 +111,17 @@ func runList(opts *listOptions) error {
 
 	// Print table
 	fmt.Printf("%-6s %-50s %-20s %-12s %s\n", "ID", "TITLE", "BRANCH", "AUTHOR", "UPDATED")
-	fmt.Println(strings.Repeat("-", 100))
+	fmt.Println(strings.Repeat("-", tableWidth))
 
 	for _, mr := range mrs {
 		title := mr.Title
-		if len(title) > 47 {
-			title = title[:47] + "..."
+		if len(title) > maxTitleLen {
+			title = title[:maxTitleLen] + "..."
 		}
 
 		branch := mr.SourceBranch.Title
-		if len(branch) > 17 {
-			branch = branch[:17] + "..."
+		if len(branch) > maxBranchLen {
+			branch = branch[:maxBranchLen] + "..."
 		}
 
 		updated := output.FormatRelativeTime(mr.UpdatedAt)

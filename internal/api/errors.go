@@ -16,7 +16,6 @@ var (
 type APIError struct {
 	StatusCode int
 	Message    string
-	RequestID  string
 }
 
 func (e *APIError) Error() string {

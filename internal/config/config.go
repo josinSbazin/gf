@@ -3,8 +3,10 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -13,10 +15,62 @@ const (
 )
 
 var (
-	ErrNoToken    = errors.New("no token configured")
-	ErrNoHost     = errors.New("no host configured")
+	ErrNoToken     = errors.New("no token configured")
+	ErrNoHost      = errors.New("no host configured")
 	ErrNotLoggedIn = errors.New("not logged in")
+	ErrInternalIP  = errors.New("hostname resolves to internal IP address")
 )
+
+// internalIPRanges defines private/internal IP ranges (RFC 1918, RFC 5737, etc.)
+var internalIPRanges = []string{
+	"10.0.0.0/8",     // Class A private
+	"172.16.0.0/12",  // Class B private
+	"192.168.0.0/16", // Class C private
+	"127.0.0.0/8",    // Loopback
+	"169.254.0.0/16", // Link-local
+	"::1/128",        // IPv6 loopback
+	"fc00::/7",       // IPv6 private
+	"fe80::/10",      // IPv6 link-local
+}
+
+// IsInternalHost checks if hostname resolves to an internal/private IP.
+// Returns true for localhost, loopback, and private network addresses.
+// This is a security check to prevent accidental credential leakage to internal services.
+func IsInternalHost(hostname string) bool {
+	// localhost is explicitly internal
+	if hostname == "localhost" || strings.HasPrefix(hostname, "localhost:") {
+		return true
+	}
+
+	// Try to parse as IP address directly
+	host := hostname
+	if h, _, err := net.SplitHostPort(hostname); err == nil {
+		host = h
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		// Not a direct IP, try DNS lookup
+		ips, err := net.LookupIP(host)
+		if err != nil || len(ips) == 0 {
+			return false // Can't resolve, assume external
+		}
+		ip = ips[0]
+	}
+
+	// Check against internal ranges
+	for _, cidr := range internalIPRanges {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			continue
+		}
+		if network.Contains(ip) {
+			return true
+		}
+	}
+
+	return false
+}
 
 // Config represents the gf configuration
 type Config struct {

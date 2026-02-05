@@ -129,6 +129,7 @@ Override config without editing files. Useful for CI/CD and scripts.
 | `GF_TOKEN` | Use this token instead of config | `GF_TOKEN=abc123 gf mr list` |
 | `GF_REPO` | Override repo detection | `GF_REPO=owner/repo gf pipeline list` |
 | `NO_COLOR` | Disable colored output | `NO_COLOR=1 gf mr list` |
+| `GF_DEBUG` | Show API request/response details | `GF_DEBUG=1 gf mr create` |
 
 **CI/CD example** — GitFlic CI:
 ```yaml
@@ -293,6 +294,7 @@ gf mr list -R company-org/project  # Использует git.company.com
 | `GF_TOKEN` | Использовать этот токен вместо конфига | `GF_TOKEN=abc123 gf mr list` |
 | `GF_REPO` | Переопределить определение репозитория | `GF_REPO=owner/repo gf pipeline list` |
 | `NO_COLOR` | Отключить цветной вывод | `NO_COLOR=1 gf mr list` |
+| `GF_DEBUG` | Показать детали API запросов/ответов | `GF_DEBUG=1 gf mr create` |
 
 **Пример CI/CD** — GitFlic CI:
 ```yaml
