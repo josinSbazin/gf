@@ -96,23 +96,18 @@ func runView(opts *viewOptions, id int) error {
 	}
 
 	// Print pipeline info
-	sha := pipeline.SHA
-	if len(sha) > 7 {
-		sha = sha[:7]
-	}
-
 	fmt.Printf("\nPipeline #%d for %s (%s) - %s %s\n\n",
 		pipeline.LocalID,
 		pipeline.Ref,
-		sha,
+		pipeline.SHA(),
 		api.StatusIcon(pipeline.Status),
-		pipeline.Status,
+		pipeline.NormalizedStatus(),
 	)
 
 	fmt.Printf("Duration: %s\n", formatDuration(pipeline.Duration))
-	fmt.Printf("Started:  %s\n", formatRelativeTime(pipeline.CreatedAt))
+	fmt.Printf("Started:  %s\n", formatRelativeTime(pipeline.CreatedAt.Time))
 	if pipeline.FinishedAt != nil {
-		fmt.Printf("Finished: %s\n", formatRelativeTime(*pipeline.FinishedAt))
+		fmt.Printf("Finished: %s\n", formatRelativeTime(pipeline.FinishedAt.Time))
 	}
 
 	// Print jobs
@@ -122,7 +117,7 @@ func runView(opts *viewOptions, id int) error {
 		fmt.Println(strings.Repeat("-", 60))
 
 		for _, job := range jobs {
-			status := fmt.Sprintf("%s %s", api.StatusIcon(job.Status), job.Status)
+			status := fmt.Sprintf("%s %s", api.StatusIcon(job.Status), job.NormalizedStatus())
 
 			name := job.Name
 			if len(name) > 22 {

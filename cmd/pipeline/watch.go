@@ -145,16 +145,11 @@ func displayPipeline(client *api.Client, repo *git.Repository, id int) (string, 
 	}
 
 	// Print pipeline info
-	sha := pipeline.SHA
-	if len(sha) > 7 {
-		sha = sha[:7]
-	}
-
 	statusColor := api.StatusColor(pipeline.Status)
 	fmt.Printf("\nPipeline #%d for %s (%s)\n\n",
 		pipeline.LocalID,
 		pipeline.Ref,
-		sha,
+		pipeline.SHA(),
 	)
 
 	// Print jobs with status
@@ -162,8 +157,8 @@ func displayPipeline(client *api.Client, repo *git.Repository, id int) (string, 
 		icon := api.StatusIcon(job.Status)
 		color := api.StatusColor(job.Status)
 
-		status := job.Status
-		if job.Status == "running" {
+		status := job.NormalizedStatus()
+		if job.NormalizedStatus() == "running" {
 			status = "running..."
 		}
 
@@ -181,11 +176,11 @@ func displayPipeline(client *api.Client, repo *git.Repository, id int) (string, 
 	fmt.Printf("\n%sOverall: %s %s%s\n",
 		statusColor,
 		api.StatusIcon(pipeline.Status),
-		pipeline.Status,
+		pipeline.NormalizedStatus(),
 		api.ColorReset,
 	)
 
-	return pipeline.Status, nil
+	return pipeline.NormalizedStatus(), nil
 }
 
 func isFinished(status string) bool {

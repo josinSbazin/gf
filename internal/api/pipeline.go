@@ -2,8 +2,44 @@ package api
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
+
+// FlexTime handles time parsing with or without timezone
+type FlexTime struct {
+	time.Time
+}
+
+func (ft *FlexTime) UnmarshalJSON(b []byte) error {
+	s := strings.Trim(string(b), `"`)
+	if s == "null" || s == "" {
+		return nil
+	}
+
+	// Try RFC3339 first (with timezone)
+	t, err := time.Parse(time.RFC3339, s)
+	if err == nil {
+		ft.Time = t
+		return nil
+	}
+
+	// Try without timezone
+	t, err = time.Parse("2006-01-02T15:04:05.999999", s)
+	if err == nil {
+		ft.Time = t
+		return nil
+	}
+
+	// Try ISO format
+	t, err = time.Parse("2006-01-02T15:04:05", s)
+	if err == nil {
+		ft.Time = t
+		return nil
+	}
+
+	return fmt.Errorf("cannot parse time: %s", s)
+}
 
 // PipelineService handles pipeline API calls
 type PipelineService struct {
@@ -12,62 +48,107 @@ type PipelineService struct {
 
 // Pipeline represents a GitFlic CI/CD pipeline
 type Pipeline struct {
-	UUID       string     `json:"uuid"`
-	LocalID    int        `json:"localId"`
-	Status     string     `json:"status"` // pending, running, success, failed, canceled
-	Ref        string     `json:"ref"`    // branch or tag
-	SHA        string     `json:"sha"`
-	CreatedAt  time.Time  `json:"createdAt"`
-	StartedAt  *time.Time `json:"startedAt,omitempty"`
-	FinishedAt *time.Time `json:"finishedAt,omitempty"`
-	Duration   int        `json:"duration"` // seconds
-	Author     User       `json:"author"`
+	ID         string    `json:"id"`
+	LocalID    int       `json:"localId"`
+	Status     string    `json:"status"` // PENDING, RUNNING, SUCCESS, FAILED, CANCELED
+	Ref        string    `json:"ref"`    // branch or tag
+	CommitID   string    `json:"commitId"`
+	Source     string    `json:"source"` // PUSH, MERGE_REQUEST, etc.
+	CreatedAt  FlexTime  `json:"createdAt"`
+	StartedAt  *FlexTime `json:"startedAt,omitempty"`
+	FinishedAt *FlexTime `json:"finishedAt,omitempty"`
+	Duration   int       `json:"duration"` // seconds
+}
+
+// SHA returns short commit hash
+func (p *Pipeline) SHA() string {
+	if len(p.CommitID) > 7 {
+		return p.CommitID[:7]
+	}
+	return p.CommitID
+}
+
+// NormalizedStatus returns lowercase status
+func (p *Pipeline) NormalizedStatus() string {
+	return strings.ToLower(p.Status)
+}
+
+// PipelineListResponse represents the paginated response from pipeline list API
+type PipelineListResponse struct {
+	Embedded struct {
+		Pipelines []Pipeline `json:"restPipelineModelList"`
+	} `json:"_embedded"`
+	Page struct {
+		Size          int `json:"size"`
+		TotalElements int `json:"totalElements"`
+		TotalPages    int `json:"totalPages"`
+		Number        int `json:"number"`
+	} `json:"page"`
 }
 
 // Job represents a job within a pipeline
 type Job struct {
-	UUID       string     `json:"uuid"`
+	ID         string     `json:"id"`
 	LocalID    int        `json:"localId"`
 	Name       string     `json:"name"`
-	Stage      string     `json:"stage"`
-	Status     string     `json:"status"` // pending, running, success, failed, canceled, skipped
-	StartedAt  *time.Time `json:"startedAt,omitempty"`
-	FinishedAt *time.Time `json:"finishedAt,omitempty"`
+	Stage      string     `json:"stageName"` // API returns stageName
+	Status     string     `json:"status"`    // PENDING, RUNNING, SUCCESS, FAILED, CANCELED, SKIPPED
+	StartedAt  *FlexTime  `json:"startedAt,omitempty"`
+	FinishedAt *FlexTime  `json:"finishedAt,omitempty"`
 	Duration   int        `json:"duration"`
 	Runner     string     `json:"runner,omitempty"`
+}
+
+// NormalizedStatus returns lowercase status
+func (j *Job) NormalizedStatus() string {
+	return strings.ToLower(j.Status)
+}
+
+// JobListResponse represents the paginated response from job list API
+type JobListResponse struct {
+	Embedded struct {
+		Jobs []Job `json:"restPipelineJobModelList"`
+	} `json:"_embedded"`
 }
 
 // List returns pipelines for a project
 func (s *PipelineService) List(owner, project string) ([]Pipeline, error) {
 	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline", owner, project)
 
-	var pipelines []Pipeline
-	if err := s.client.Get(path, &pipelines); err != nil {
+	var resp PipelineListResponse
+	if err := s.client.Get(path, &resp); err != nil {
 		return nil, err
 	}
-	return pipelines, nil
+	return resp.Embedded.Pipelines, nil
 }
 
-// Get returns a specific pipeline
+// Get returns a specific pipeline by localID
+// Note: GitFlic API doesn't have a direct endpoint for single pipeline,
+// so we fetch the list and filter by localID
 func (s *PipelineService) Get(owner, project string, localID int) (*Pipeline, error) {
-	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d", owner, project, localID)
-
-	var p Pipeline
-	if err := s.client.Get(path, &p); err != nil {
+	pipelines, err := s.List(owner, project)
+	if err != nil {
 		return nil, err
 	}
-	return &p, nil
+
+	for i := range pipelines {
+		if pipelines[i].LocalID == localID {
+			return &pipelines[i], nil
+		}
+	}
+
+	return nil, &APIError{StatusCode: 404, Message: fmt.Sprintf("pipeline #%d not found", localID)}
 }
 
 // Jobs returns jobs for a pipeline
 func (s *PipelineService) Jobs(owner, project string, localID int) ([]Job, error) {
 	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d/jobs", owner, project, localID)
 
-	var jobs []Job
-	if err := s.client.Get(path, &jobs); err != nil {
+	var resp JobListResponse
+	if err := s.client.Get(path, &resp); err != nil {
 		return nil, err
 	}
-	return jobs, nil
+	return resp.Embedded.Jobs, nil
 }
 
 // Start starts a new pipeline
@@ -101,7 +182,7 @@ func (s *PipelineService) Cancel(owner, project string, localID int) error {
 
 // StatusIcon returns an icon for the pipeline status
 func StatusIcon(status string) string {
-	switch status {
+	switch strings.ToLower(status) {
 	case "success", "passed":
 		return "✓"
 	case "failed":
@@ -121,7 +202,7 @@ func StatusIcon(status string) string {
 
 // StatusColor returns color for terminal output
 func StatusColor(status string) string {
-	switch status {
+	switch strings.ToLower(status) {
 	case "success", "passed":
 		return "\033[32m" // green
 	case "failed":

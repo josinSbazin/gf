@@ -94,26 +94,21 @@ func runList(opts *listOptions) error {
 	fmt.Println(strings.Repeat("-", 80))
 
 	for _, p := range pipelines {
-		status := fmt.Sprintf("%s %s", api.StatusIcon(p.Status), p.Status)
+		status := fmt.Sprintf("%s %-7s", api.StatusIcon(p.Status), p.NormalizedStatus())
 
 		branch := p.Ref
 		if len(branch) > 22 {
 			branch = branch[:22] + "..."
 		}
 
-		sha := p.SHA
-		if len(sha) > 7 {
-			sha = sha[:7]
-		}
-
 		duration := formatDuration(p.Duration)
-		updated := formatRelativeTime(p.CreatedAt)
+		updated := formatRelativeTime(p.CreatedAt.Time)
 
 		fmt.Printf("#%-5d %-10s %-25s %-10s %-10s %s\n",
 			p.LocalID,
 			status,
 			branch,
-			sha,
+			p.SHA(),
 			duration,
 			updated,
 		)
