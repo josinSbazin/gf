@@ -113,6 +113,39 @@ func TestConfig_Token(t *testing.T) {
 	}
 }
 
+func TestConfig_Token_EnvOverride(t *testing.T) {
+	// Test GF_TOKEN environment variable takes priority
+	cfg := &Config{
+		ActiveHost: "gitflic.ru",
+		Hosts: map[string]*Host{
+			"gitflic.ru": {Token: "config-token"},
+		},
+	}
+
+	// Set environment variable
+	origEnv := os.Getenv("GF_TOKEN")
+	os.Setenv("GF_TOKEN", "env-token")
+	defer os.Setenv("GF_TOKEN", origEnv)
+
+	token, err := cfg.Token()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != "env-token" {
+		t.Errorf("Token() = %q, want env-token (from GF_TOKEN)", token)
+	}
+
+	// Unset env, should fall back to config
+	os.Unsetenv("GF_TOKEN")
+	token, err = cfg.Token()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != "config-token" {
+		t.Errorf("Token() = %q, want config-token", token)
+	}
+}
+
 func TestConfig_ActiveHostConfig(t *testing.T) {
 	cfg := &Config{
 		ActiveHost: "gitflic.ru",

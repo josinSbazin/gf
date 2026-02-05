@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/josinSbazin/gf/internal/api"
+	"github.com/josinSbazin/gf/internal/browser"
 	"github.com/josinSbazin/gf/internal/config"
 	"github.com/josinSbazin/gf/internal/git"
 	"github.com/spf13/cobra"
@@ -138,6 +139,12 @@ func runView(opts *viewOptions, id int) error {
 	// URL
 	url := fmt.Sprintf("https://%s/project/%s/%s/cicd/pipeline/%d",
 		repo.Host, repo.Owner, repo.Name, pipeline.LocalID)
+
+	if opts.web {
+		fmt.Printf("Opening %s in browser...\n", url)
+		return browser.Open(url)
+	}
+
 	fmt.Printf("View in browser: %s\n", url)
 
 	return nil

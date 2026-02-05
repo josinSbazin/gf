@@ -117,7 +117,13 @@ func (c *Config) ActiveHostConfig() *Host {
 }
 
 // Token returns the token for the active host
+// Priority: GF_TOKEN env > config file
 func (c *Config) Token() (string, error) {
+	// Check environment variable first
+	if token := os.Getenv("GF_TOKEN"); token != "" {
+		return token, nil
+	}
+
 	host := c.ActiveHostConfig()
 	if host == nil || host.Token == "" {
 		return "", ErrNoToken

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/josinSbazin/gf/internal/api"
+	"github.com/josinSbazin/gf/internal/browser"
 	"github.com/josinSbazin/gf/internal/config"
 	"github.com/josinSbazin/gf/internal/git"
 	"github.com/spf13/cobra"
@@ -45,8 +46,8 @@ func newCreateCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&opts.title, "title", "t", "", "Title of the merge request")
 	cmd.Flags().StringVarP(&opts.body, "body", "b", "", "Description of the merge request")
-	cmd.Flags().StringVar(&opts.target, "target", "", "Target branch (default: main)")
-	cmd.Flags().StringVar(&opts.source, "source", "", "Source branch (default: current branch)")
+	cmd.Flags().StringVarP(&opts.target, "target", "T", "", "Target branch (default: main)")
+	cmd.Flags().StringVarP(&opts.source, "source", "S", "", "Source branch (default: current branch)")
 	cmd.Flags().BoolVar(&opts.draft, "draft", false, "Create as draft")
 	cmd.Flags().BoolVarP(&opts.deleteBranch, "delete-branch", "d", false, "Delete source branch after merge")
 	cmd.Flags().StringVarP(&opts.repo, "repo", "R", "", "Repository (owner/name)")
@@ -144,6 +145,10 @@ func runCreate(opts *createOptions) error {
 	url := fmt.Sprintf("https://%s/project/%s/%s/merge-request/%d",
 		repo.Host, repo.Owner, repo.Name, mr.LocalID)
 	fmt.Println(url)
+
+	if opts.web {
+		return browser.Open(url)
+	}
 
 	return nil
 }

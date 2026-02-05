@@ -9,9 +9,27 @@ import (
 )
 
 var (
-	ErrNotGitRepo = errors.New("not a git repository (or any of the parent directories)")
-	ErrNoRemote   = errors.New("could not determine repository from git remotes")
+	ErrNotGitRepo    = errors.New("not a git repository (or any of the parent directories)")
+	ErrNoRemote      = errors.New("could not determine repository from git remotes")
+	ErrInvalidName   = errors.New("invalid owner or repository name")
 )
+
+// validNameRegex validates owner/project names to prevent path traversal
+var validNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][-a-zA-Z0-9_.]*$`)
+
+// ValidateName checks if owner/project name is safe
+func ValidateName(name string) error {
+	if name == "" || name == "." || name == ".." {
+		return ErrInvalidName
+	}
+	if strings.Contains(name, "/") || strings.Contains(name, "\\") {
+		return ErrInvalidName
+	}
+	if !validNameRegex.MatchString(name) {
+		return ErrInvalidName
+	}
+	return nil
+}
 
 // Repository represents a GitFlic repository
 type Repository struct {
@@ -46,12 +64,24 @@ func parseRepoString(s string) (*Repository, error) {
 	parts := strings.Split(s, "/")
 	switch len(parts) {
 	case 2:
+		if err := ValidateName(parts[0]); err != nil {
+			return nil, errors.New("invalid owner name")
+		}
+		if err := ValidateName(parts[1]); err != nil {
+			return nil, errors.New("invalid repository name")
+		}
 		return &Repository{
 			Host:  "gitflic.ru",
 			Owner: parts[0],
 			Name:  parts[1],
 		}, nil
 	case 3:
+		if err := ValidateName(parts[1]); err != nil {
+			return nil, errors.New("invalid owner name")
+		}
+		if err := ValidateName(parts[2]); err != nil {
+			return nil, errors.New("invalid repository name")
+		}
 		return &Repository{
 			Host:  parts[0],
 			Owner: parts[1],
@@ -62,45 +92,46 @@ func parseRepoString(s string) (*Repository, error) {
 	}
 }
 
+// Pre-compiled regexes for remote URL parsing (performance optimization)
+var remoteURLPatterns = []struct {
+	re    *regexp.Regexp
+	host  int
+	owner int
+	name  int
+}{
+	// https://gitflic.ru/project/owner/repo.git
+	{
+		re:    regexp.MustCompile(`https?://([^/]+)/project/([^/]+)/([^/]+?)(?:\.git)?$`),
+		host:  1,
+		owner: 2,
+		name:  3,
+	},
+	// https://gitflic.ru/owner/repo.git (alternative format)
+	{
+		re:    regexp.MustCompile(`https?://([^/]+)/([^/]+)/([^/]+?)(?:\.git)?$`),
+		host:  1,
+		owner: 2,
+		name:  3,
+	},
+	// git@gitflic.ru:owner/repo.git
+	{
+		re:    regexp.MustCompile(`git@([^:]+):([^/]+)/([^/]+?)(?:\.git)?$`),
+		host:  1,
+		owner: 2,
+		name:  3,
+	},
+	// ssh://git@gitflic.ru/owner/repo.git
+	{
+		re:    regexp.MustCompile(`ssh://git@([^/]+)/([^/]+)/([^/]+?)(?:\.git)?$`),
+		host:  1,
+		owner: 2,
+		name:  3,
+	},
+}
+
 // parseRemoteURL parses various git remote URL formats
 func parseRemoteURL(url string) (*Repository, error) {
-	patterns := []struct {
-		re   *regexp.Regexp
-		host int
-		owner int
-		name int
-	}{
-		// https://gitflic.ru/project/owner/repo.git
-		{
-			re:    regexp.MustCompile(`https?://([^/]+)/project/([^/]+)/([^/]+?)(?:\.git)?$`),
-			host:  1,
-			owner: 2,
-			name:  3,
-		},
-		// https://gitflic.ru/owner/repo.git (alternative format)
-		{
-			re:    regexp.MustCompile(`https?://([^/]+)/([^/]+)/([^/]+?)(?:\.git)?$`),
-			host:  1,
-			owner: 2,
-			name:  3,
-		},
-		// git@gitflic.ru:owner/repo.git
-		{
-			re:    regexp.MustCompile(`git@([^:]+):([^/]+)/([^/]+?)(?:\.git)?$`),
-			host:  1,
-			owner: 2,
-			name:  3,
-		},
-		// ssh://git@gitflic.ru/owner/repo.git
-		{
-			re:    regexp.MustCompile(`ssh://git@([^/]+)/([^/]+)/([^/]+?)(?:\.git)?$`),
-			host:  1,
-			owner: 2,
-			name:  3,
-		},
-	}
-
-	for _, p := range patterns {
+	for _, p := range remoteURLPatterns {
 		matches := p.re.FindStringSubmatch(url)
 		if matches != nil {
 			return &Repository{

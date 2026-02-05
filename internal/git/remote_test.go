@@ -218,3 +218,64 @@ func TestErrors(t *testing.T) {
 		t.Error("ErrNoRemote has empty message")
 	}
 }
+
+func TestValidateName(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"valid simple", "myrepo", false},
+		{"valid with dash", "my-repo", false},
+		{"valid with underscore", "my_repo", false},
+		{"valid with dot", "my.repo", false},
+		{"valid with numbers", "repo123", false},
+		{"valid mixed", "My-Repo_123.test", false},
+
+		// Invalid cases - path traversal attempts
+		{"empty", "", true},
+		{"dot", ".", true},
+		{"dotdot", "..", true},
+		{"path traversal slash", "../etc", true},
+		{"path traversal backslash", "..\\etc", true},
+		{"contains slash", "foo/bar", true},
+		{"contains backslash", "foo\\bar", true},
+
+		// Invalid characters
+		{"starts with dash", "-repo", true},
+		{"contains space", "my repo", true},
+		{"contains special", "repo@test", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateName(tt.input)
+			if tt.wantErr && err == nil {
+				t.Errorf("ValidateName(%q) should return error", tt.input)
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("ValidateName(%q) unexpected error: %v", tt.input, err)
+			}
+		})
+	}
+}
+
+func TestParseRepoString_PathTraversal(t *testing.T) {
+	// These should all fail due to path traversal protection
+	tests := []string{
+		"../passwd",          // owner = "..", name = "passwd"
+		"..%2Fetc/passwd",    // URL encoded
+		"owner/..%2Fetc",     // URL encoded in name
+		"host/../repo",       // ".." as owner
+		"host/owner/..",      // ".." as name
+	}
+
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			_, err := parseRepoString(input)
+			if err == nil {
+				t.Errorf("parseRepoString(%q) should return error for path traversal", input)
+			}
+		})
+	}
+}

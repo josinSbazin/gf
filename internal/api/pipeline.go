@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 )
@@ -111,9 +112,31 @@ type JobListResponse struct {
 	} `json:"_embedded"`
 }
 
+// PipelineListOptions specifies options for listing pipelines
+type PipelineListOptions struct {
+	Page int // 0-indexed page number
+	Size int // items per page (default: 20)
+}
+
 // List returns pipelines for a project
 func (s *PipelineService) List(owner, project string) ([]Pipeline, error) {
+	return s.ListWithOptions(owner, project, nil)
+}
+
+// ListWithOptions returns pipelines with pagination
+func (s *PipelineService) ListWithOptions(owner, project string, opts *PipelineListOptions) ([]Pipeline, error) {
 	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline", owner, project)
+
+	if opts != nil && (opts.Page > 0 || opts.Size > 0) {
+		path += "?"
+		if opts.Page > 0 {
+			path += fmt.Sprintf("page=%d&", opts.Page)
+		}
+		if opts.Size > 0 {
+			path += fmt.Sprintf("size=%d&", opts.Size)
+		}
+		path = strings.TrimSuffix(path, "&")
+	}
 
 	var resp PipelineListResponse
 	if err := s.client.Get(path, &resp); err != nil {
@@ -123,17 +146,39 @@ func (s *PipelineService) List(owner, project string) ([]Pipeline, error) {
 }
 
 // Get returns a specific pipeline by localID
-// Note: GitFlic API doesn't have a direct endpoint for single pipeline,
-// so we fetch the list and filter by localID
+// Note: GitFlic API may not have a direct endpoint for single pipeline,
+// so we try direct access first, then fall back to list search
 func (s *PipelineService) Get(owner, project string, localID int) (*Pipeline, error) {
-	pipelines, err := s.List(owner, project)
-	if err != nil {
-		return nil, err
+	// Try direct endpoint first (may not exist in all GitFlic versions)
+	directPath := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d", owner, project, localID)
+	var pipeline Pipeline
+	if err := s.client.Get(directPath, &pipeline); err == nil && pipeline.LocalID == localID {
+		return &pipeline, nil
 	}
 
-	for i := range pipelines {
-		if pipelines[i].LocalID == localID {
-			return &pipelines[i], nil
+	// Fallback: fetch recent pipelines and search
+	// Use pagination to limit data transfer - most lookups are for recent pipelines
+	const maxPages = 5
+	const pageSize = 50
+
+	for page := 0; page < maxPages; page++ {
+		pipelines, err := s.ListWithOptions(owner, project, &PipelineListOptions{
+			Page: page,
+			Size: pageSize,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range pipelines {
+			if pipelines[i].LocalID == localID {
+				return &pipelines[i], nil
+			}
+		}
+
+		// If less than pageSize returned, we've reached the end
+		if len(pipelines) < pageSize {
+			break
 		}
 	}
 
@@ -200,8 +245,18 @@ func StatusIcon(status string) string {
 	}
 }
 
+// NoColor returns true if color output should be disabled
+func NoColor() bool {
+	return os.Getenv("NO_COLOR") != ""
+}
+
 // StatusColor returns color for terminal output
+// Returns empty string if NO_COLOR env is set
 func StatusColor(status string) string {
+	if NoColor() {
+		return ""
+	}
+
 	switch strings.ToLower(status) {
 	case "success", "passed":
 		return "\033[32m" // green
@@ -218,4 +273,11 @@ func StatusColor(status string) string {
 	}
 }
 
-const ColorReset = "\033[0m"
+// ColorReset resets terminal color
+// Returns empty string if NO_COLOR env is set
+func ColorReset() string {
+	if NoColor() {
+		return ""
+	}
+	return "\033[0m"
+}

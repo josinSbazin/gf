@@ -165,7 +165,7 @@ func displayPipeline(client *api.Client, repo *git.Repository, id int) (string, 
 		fmt.Printf(" %s%s%s %-20s %-15s %s\n",
 			color,
 			icon,
-			api.ColorReset,
+			api.ColorReset(),
 			job.Name,
 			status,
 			formatDuration(job.Duration),
@@ -177,7 +177,7 @@ func displayPipeline(client *api.Client, repo *git.Repository, id int) (string, 
 		statusColor,
 		api.StatusIcon(pipeline.Status),
 		pipeline.NormalizedStatus(),
-		api.ColorReset,
+		api.ColorReset(),
 	)
 
 	return pipeline.NormalizedStatus(), nil

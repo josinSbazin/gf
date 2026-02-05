@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/josinSbazin/gf/internal/api"
+	"github.com/josinSbazin/gf/internal/browser"
 	"github.com/josinSbazin/gf/internal/config"
 	"github.com/josinSbazin/gf/internal/git"
 	"github.com/spf13/cobra"
@@ -122,6 +123,12 @@ func runView(opts *viewOptions) error {
 	fmt.Println()
 
 	webURL := fmt.Sprintf("https://%s/project/%s/%s", repo.Host, repo.Owner, project.Alias)
+
+	if opts.web {
+		fmt.Printf("Opening %s in browser...\n", webURL)
+		return browser.Open(webURL)
+	}
+
 	fmt.Printf("View in browser: %s\n", webURL)
 
 	return nil
