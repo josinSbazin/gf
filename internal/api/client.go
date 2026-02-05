@@ -1,0 +1,143 @@
+package api
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+)
+
+// Client is the GitFlic API client
+type Client struct {
+	BaseURL    string
+	Token      string
+	httpClient *http.Client
+}
+
+// NewClient creates a new API client
+func NewClient(baseURL, token string) *Client {
+	return &Client{
+		BaseURL: baseURL,
+		Token:   token,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
+}
+
+// REST performs an HTTP request and decodes the JSON response
+func (c *Client) REST(method, path string, body, out any) error {
+	var bodyReader io.Reader
+	if body != nil {
+		data, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		bodyReader = bytes.NewReader(data)
+	}
+
+	url := c.BaseURL + path
+	req, err := http.NewRequest(method, url, bodyReader)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	if c.Token != "" {
+		req.Header.Set("Authorization", "token "+c.Token)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrNetwork, err)
+	}
+	defer func() {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
+
+	if resp.StatusCode >= 400 {
+		return c.handleError(resp)
+	}
+
+	if out != nil && resp.StatusCode != http.StatusNoContent {
+		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+			return fmt.Errorf("failed to decode response: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// Get performs a GET request
+func (c *Client) Get(path string, out any) error {
+	return c.REST(http.MethodGet, path, nil, out)
+}
+
+// Post performs a POST request
+func (c *Client) Post(path string, body, out any) error {
+	return c.REST(http.MethodPost, path, body, out)
+}
+
+// Put performs a PUT request
+func (c *Client) Put(path string, body, out any) error {
+	return c.REST(http.MethodPut, path, body, out)
+}
+
+// Delete performs a DELETE request
+func (c *Client) Delete(path string) error {
+	return c.REST(http.MethodDelete, path, nil, nil)
+}
+
+func (c *Client) handleError(resp *http.Response) error {
+	switch resp.StatusCode {
+	case http.StatusUnauthorized:
+		return ErrUnauthorized
+	case http.StatusForbidden:
+		return ErrForbidden
+	case http.StatusNotFound:
+		return ErrNotFound
+	default:
+		// Try to parse error message from response
+		var errResp struct {
+			Message string `json:"message"`
+			Error   string `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
+			msg := errResp.Message
+			if msg == "" {
+				msg = errResp.Error
+			}
+			return &APIError{
+				StatusCode: resp.StatusCode,
+				Message:    msg,
+			}
+		}
+		return &APIError{
+			StatusCode: resp.StatusCode,
+		}
+	}
+}
+
+// MergeRequests returns the merge request service
+func (c *Client) MergeRequests() *MergeRequestService {
+	return &MergeRequestService{client: c}
+}
+
+// Pipelines returns the pipeline service
+func (c *Client) Pipelines() *PipelineService {
+	return &PipelineService{client: c}
+}
+
+// Projects returns the project service
+func (c *Client) Projects() *ProjectService {
+	return &ProjectService{client: c}
+}
+
+// Users returns the user service
+func (c *Client) Users() *UserService {
+	return &UserService{client: c}
+}

@@ -1,0 +1,31 @@
+# Binaries
+gf
+gf.exe
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build directory
+dist/
+
+# Test binary
+*.test
+
+# Coverage
+*.out
+coverage.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependency directories
+vendor/
