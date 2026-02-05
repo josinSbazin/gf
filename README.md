@@ -10,13 +10,20 @@ CLI для GitFlic: merge request'ы, пайплайны, репозитории
 
 ### Install
 
+**Via Go (recommended):**
 ```bash
 go install github.com/josinSbazin/gf@latest
 ```
+> Note: `go install` uses GitHub as Go modules registry. The code is mirrored on both GitHub and GitFlic.
 
-Or build from source:
+**Build from source (GitHub):**
 ```bash
 git clone https://github.com/josinSbazin/gf.git && cd gf && go build -o gf .
+```
+
+**Build from source (GitFlic):**
+```bash
+git clone https://gitflic.ru/project/josinsbazin/gf.git && cd gf && go build -o gf .
 ```
 
 ### Quick Start
@@ -165,13 +172,20 @@ gf pipeline watch 123 --exit-status || echo "Pipeline failed!"
 
 ### Установка
 
+**Через Go (рекомендуется):**
 ```bash
 go install github.com/josinSbazin/gf@latest
 ```
+> Примечание: `go install` использует GitHub как реестр Go-модулей. Код дублируется на GitHub и GitFlic.
 
-Или сборка:
+**Сборка из исходников (GitHub):**
 ```bash
 git clone https://github.com/josinSbazin/gf.git && cd gf && go build -o gf .
+```
+
+**Сборка из исходников (GitFlic):**
+```bash
+git clone https://gitflic.ru/project/josinsbazin/gf.git && cd gf && go build -o gf .
 ```
 
 ### Быстрый старт
