@@ -46,7 +46,7 @@ type MergeRequest struct {
 // State returns normalized state string (open, merged, closed)
 func (mr *MergeRequest) State() string {
 	switch mr.Status.ID {
-	case "OPEN":
+	case "OPEN", "OPENED":
 		return "open"
 	case "MERGED":
 		return "merged"
@@ -80,15 +80,27 @@ type MRListOptions struct {
 	PerPage      int
 }
 
+// BranchRef is a reference to a branch for API requests
+type BranchRef struct {
+	ID string `json:"id"`
+}
+
+// ProjectRef is a reference to a project for API requests
+type ProjectRef struct {
+	ID string `json:"id"`
+}
+
 // CreateMRRequest specifies the parameters for creating a merge request
 type CreateMRRequest struct {
-	Title              string `json:"title"`
-	Description        string `json:"description,omitempty"`
-	SourceBranch       string `json:"sourceBranch"`
-	TargetBranch       string `json:"targetBranch"`
-	RemoveSourceBranch bool   `json:"removeSourceBranch,omitempty"`
-	IsDraft            bool   `json:"workInProgress,omitempty"`
-	SquashCommit       bool   `json:"squashCommit,omitempty"`
+	Title              string     `json:"title"`
+	Description        string     `json:"description,omitempty"`
+	SourceBranch       BranchRef  `json:"sourceBranch"`
+	TargetBranch       BranchRef  `json:"targetBranch"`
+	SourceProject      ProjectRef `json:"sourceProject"`
+	TargetProject      ProjectRef `json:"targetProject"`
+	RemoveSourceBranch bool       `json:"removeSourceBranch,omitempty"`
+	IsDraft            bool       `json:"workInProgress,omitempty"`
+	SquashCommit       bool       `json:"squashCommit,omitempty"`
 }
 
 // MergeMRRequest specifies the parameters for merging a merge request

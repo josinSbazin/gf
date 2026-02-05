@@ -112,12 +112,20 @@ func runCreate(opts *createOptions) error {
 
 	client := api.NewClient(config.BaseURL(cfg.ActiveHost), token)
 
+	// Get project info to get UUID
+	project, err := client.Projects().Get(repo.Owner, repo.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get project info: %w", err)
+	}
+
 	// Create merge request
 	mr, err := client.MergeRequests().Create(repo.Owner, repo.Name, &api.CreateMRRequest{
-		Title:              opts.title,
-		Description:        opts.body,
-		SourceBranch:       opts.source,
-		TargetBranch:       opts.target,
+		Title:        opts.title,
+		Description:  opts.body,
+		SourceBranch: api.BranchRef{ID: opts.source},
+		TargetBranch: api.BranchRef{ID: opts.target},
+		SourceProject: api.ProjectRef{ID: project.ID},
+		TargetProject: api.ProjectRef{ID: project.ID},
 		IsDraft:            opts.draft,
 		RemoveSourceBranch: opts.deleteBranch,
 	})

@@ -1,9 +1,6 @@
 package api
 
-import (
-	"fmt"
-	"time"
-)
+import "fmt"
 
 // ProjectService handles project-related API calls
 type ProjectService struct {
@@ -12,17 +9,19 @@ type ProjectService struct {
 
 // Project represents a GitFlic project
 type Project struct {
-	UUID        string    `json:"uuid"`
-	Alias       string    `json:"alias"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	IsPrivate   bool      `json:"isPrivate"`
-	OwnerAlias  string    `json:"ownerAlias"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
-	StarsCount  int       `json:"starsCount"`
-	ForksCount  int       `json:"forksCount"`
-	Language    string    `json:"language"`
+	ID          string `json:"id"`
+	Alias       string `json:"alias"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	IsPrivate   bool   `json:"private"`
+	Language    string `json:"language"`
+	Owner       struct {
+		Alias string `json:"alias"`
+		Type  string `json:"type"`
+	} `json:"owner"`
+	DefaultBranch    string `json:"defaultBranch"`
+	HTTPTransportURL string `json:"httpTransportUrl"`
+	SSHTransportURL  string `json:"sshTransportUrl"`
 }
 
 // Get returns a project by owner and name

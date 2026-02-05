@@ -85,12 +85,6 @@ func runView(opts *viewOptions) error {
 	}
 	fmt.Printf("Visibility: %s\n", visibility)
 
-	if project.StarsCount > 0 {
-		fmt.Printf("Stars:      %d\n", project.StarsCount)
-	}
-	if project.ForksCount > 0 {
-		fmt.Printf("Forks:      %d\n", project.ForksCount)
-	}
 	if project.Language != "" {
 		fmt.Printf("Language:   %s\n", project.Language)
 	}
