@@ -29,7 +29,7 @@ func newStatusCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.hostname, "hostname", "h", "", "Check specific hostname")
+	cmd.Flags().StringVarP(&opts.hostname, "hostname", "H", "", "Check specific hostname")
 
 	return cmd
 }
@@ -84,7 +84,7 @@ func checkHost(hostname string, host *config.Host) error {
 		return nil
 	}
 
-	fmt.Printf("  ✓ Logged in as %s\n", user.Alias)
+	fmt.Printf("  ✓ Logged in as %s\n", user.Username)
 
 	// Show masked token
 	token := host.Token

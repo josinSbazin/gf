@@ -107,7 +107,7 @@ func runList(opts *listOptions) error {
 			title = title[:47] + "..."
 		}
 
-		branch := mr.SourceBranch
+		branch := mr.SourceBranch.Title
 		if len(branch) > 17 {
 			branch = branch[:17] + "..."
 		}
@@ -118,7 +118,7 @@ func runList(opts *listOptions) error {
 			mr.LocalID,
 			title,
 			branch,
-			mr.Author.Alias,
+			mr.Author.Username,
 			updated,
 		)
 	}

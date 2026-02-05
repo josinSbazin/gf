@@ -10,25 +10,63 @@ type MergeRequestService struct {
 	client *Client
 }
 
+// Branch represents a git branch in GitFlic
+type Branch struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Hash      string `json:"hash"`
+	IsDeleted bool   `json:"isDeleted"`
+}
+
+// Status represents a merge request status
+type Status struct {
+	ID       string `json:"id"` // OPEN, MERGED, CANCELED, CLOSED
+	Title    string `json:"title"`
+	Color    string `json:"color"`
+	HexColor string `json:"hexColor"`
+}
+
 // MergeRequest represents a GitFlic merge request
 type MergeRequest struct {
-	UUID           string    `json:"uuid"`
-	LocalID        int       `json:"localId"`
-	Title          string    `json:"title"`
-	Description    string    `json:"description"`
-	State          string    `json:"state"` // open, merged, closed
-	SourceBranch   string    `json:"sourceBranch"`
-	TargetBranch   string    `json:"targetBranch"`
-	Author         User      `json:"author"`
-	CreatedAt      time.Time `json:"createdAt"`
-	UpdatedAt      time.Time `json:"updatedAt"`
-	MergedAt       *time.Time `json:"mergedAt,omitempty"`
-	ClosedAt       *time.Time `json:"closedAt,omitempty"`
-	IsDraft        bool      `json:"isDraft"`
-	CanMerge       bool      `json:"canMerge"`
-	HasConflicts   bool      `json:"hasConflicts"`
-	CommentsCount  int       `json:"commentsCount"`
-	ApprovalsCount int       `json:"approvalsCount"`
+	ID           string    `json:"id"`
+	LocalID      int       `json:"localId"`
+	Title        string    `json:"title"`
+	Description  string    `json:"description"`
+	SourceBranch Branch    `json:"sourceBranch"`
+	TargetBranch Branch    `json:"targetBranch"`
+	Status       Status    `json:"status"`
+	Author       User      `json:"createdBy"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+	CanMerge     bool      `json:"canMerge"`
+	HasConflicts bool      `json:"hasConflicts"`
+}
+
+// State returns normalized state string (open, merged, closed)
+func (mr *MergeRequest) State() string {
+	switch mr.Status.ID {
+	case "OPEN":
+		return "open"
+	case "MERGED":
+		return "merged"
+	case "CANCELED", "CLOSED":
+		return "closed"
+	default:
+		return mr.Status.ID
+	}
+}
+
+// MRListResponse represents the paginated response from MR list API
+type MRListResponse struct {
+	Embedded struct {
+		MergeRequests []MergeRequest `json:"mergeRequestModelList"`
+	} `json:"_embedded"`
+	Page struct {
+		Size          int `json:"size"`
+		TotalElements int `json:"totalElements"`
+		TotalPages    int `json:"totalPages"`
+		Number        int `json:"number"`
+	} `json:"page"`
 }
 
 // MRListOptions specifies options for listing merge requests
@@ -65,11 +103,11 @@ func (s *MergeRequestService) List(owner, project string, opts *MRListOptions) (
 
 	// TODO: Add query params for filtering
 
-	var mrs []MergeRequest
-	if err := s.client.Get(path, &mrs); err != nil {
+	var resp MRListResponse
+	if err := s.client.Get(path, &resp); err != nil {
 		return nil, err
 	}
-	return mrs, nil
+	return resp.Embedded.MergeRequests, nil
 }
 
 // Get returns a specific merge request

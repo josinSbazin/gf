@@ -1,7 +1,5 @@
 package api
 
-import "time"
-
 // UserService handles user-related API calls
 type UserService struct {
 	client *Client
@@ -9,12 +7,18 @@ type UserService struct {
 
 // User represents a GitFlic user
 type User struct {
-	UUID      string    `json:"uuid"`
-	Alias     string    `json:"alias"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	AvatarURL string    `json:"avatarUrl"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	Surname   string `json:"surname"`
+	FullName  string `json:"fullName"`
+	AvatarURL string `json:"avatar"`
+}
+
+// Alias returns username for compatibility
+func (u *User) Alias() string {
+	return u.Username
 }
 
 // Me returns the authenticated user

@@ -97,8 +97,8 @@ func runMerge(opts *mergeOptions, id int) error {
 		return fmt.Errorf("failed to get merge request: %w", err)
 	}
 
-	if mr.State != "open" {
-		return fmt.Errorf("merge request #%d is %s, cannot merge", id, mr.State)
+	if mr.State() != "open" {
+		return fmt.Errorf("merge request #%d is %s, cannot merge", id, mr.State())
 	}
 
 	if mr.HasConflicts {
@@ -108,7 +108,7 @@ func runMerge(opts *mergeOptions, id int) error {
 	// Confirm if not --yes
 	if !opts.yes {
 		fmt.Printf("Merge request #%d: %s\n", mr.LocalID, mr.Title)
-		fmt.Printf("  %s → %s\n\n", mr.SourceBranch, mr.TargetBranch)
+		fmt.Printf("  %s → %s\n\n", mr.SourceBranch.Title, mr.TargetBranch.Title)
 
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Merge this merge request? [y/N] ")
@@ -130,10 +130,10 @@ func runMerge(opts *mergeOptions, id int) error {
 		return fmt.Errorf("failed to merge: %w", err)
 	}
 
-	fmt.Printf("✓ Merged merge request #%d (%s → %s)\n", mr.LocalID, mr.SourceBranch, mr.TargetBranch)
+	fmt.Printf("✓ Merged merge request #%d (%s → %s)\n", mr.LocalID, mr.SourceBranch.Title, mr.TargetBranch.Title)
 
 	if opts.deleteBranch {
-		fmt.Printf("✓ Deleted branch %s\n", mr.SourceBranch)
+		fmt.Printf("✓ Deleted branch %s\n", mr.SourceBranch.Title)
 	}
 
 	return nil

@@ -45,7 +45,7 @@ The token can be obtained from GitFlic settings:
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.hostname, "hostname", "h", config.DefaultHost(), "GitFlic hostname")
+	cmd.Flags().StringVarP(&opts.hostname, "hostname", "H", config.DefaultHost(), "GitFlic hostname")
 	cmd.Flags().StringVarP(&opts.token, "token", "t", "", "Access token")
 	cmd.Flags().BoolVar(&opts.stdin, "stdin", false, "Read token from stdin")
 
@@ -104,7 +104,7 @@ func runLogin(opts *loginOptions) error {
 
 	cfg.SetHost(opts.hostname, &config.Host{
 		Token:    token,
-		User:     user.Alias,
+		User:     user.Username,
 		Protocol: "https",
 	})
 	cfg.ActiveHost = opts.hostname
@@ -113,6 +113,6 @@ func runLogin(opts *loginOptions) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Printf("✓ Logged in as %s to %s\n", user.Alias, opts.hostname)
+	fmt.Printf("✓ Logged in as %s to %s\n", user.Username, opts.hostname)
 	return nil
 }

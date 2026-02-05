@@ -90,8 +90,8 @@ func runView(opts *viewOptions, id int) error {
 
 	// Print details
 	stateIcon := "○"
-	stateText := mr.State
-	switch mr.State {
+	stateText := mr.State()
+	switch mr.State() {
 	case "open":
 		stateIcon = "●"
 		stateText = "Open"
@@ -105,7 +105,7 @@ func runView(opts *viewOptions, id int) error {
 
 	fmt.Printf("\n%s %s #%d\n", mr.Title, stateIcon, mr.LocalID)
 	fmt.Printf("%s • @%s wants to merge %s into %s\n\n",
-		stateText, mr.Author.Alias, mr.SourceBranch, mr.TargetBranch)
+		stateText, mr.Author.Username, mr.SourceBranch.Title, mr.TargetBranch.Title)
 
 	if mr.Description != "" {
 		fmt.Println(mr.Description)
@@ -121,10 +121,6 @@ func runView(opts *viewOptions, id int) error {
 
 	fmt.Printf("Created:  %s\n", formatRelativeTime(mr.CreatedAt))
 	fmt.Printf("Updated:  %s\n", formatRelativeTime(mr.UpdatedAt))
-
-	if mr.MergedAt != nil {
-		fmt.Printf("Merged:   %s\n", formatRelativeTime(*mr.MergedAt))
-	}
 
 	fmt.Println()
 
