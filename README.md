@@ -10,11 +10,25 @@ CLI для GitFlic: merge request'ы, пайплайны, issues, релизы, 
 
 ### Install
 
-**Via Go (recommended):**
+**Homebrew (macOS/Linux):**
+```bash
+brew tap josinSbazin/gf
+brew install gf
+```
+
+**Scoop (Windows):**
+```powershell
+scoop bucket add gf https://github.com/josinSbazin/scoop-gf
+scoop install gf
+```
+
+**Via Go:**
 ```bash
 go install github.com/josinSbazin/gf@latest
 ```
-> Note: `go install` uses GitHub as Go modules registry. The code is mirrored on both GitHub and GitFlic.
+
+<details>
+<summary>Other installation methods</summary>
 
 **Download binary:**
 
@@ -22,26 +36,24 @@ Download from [GitHub Releases](https://github.com/josinSbazin/gf/releases/lates
 
 | Platform | File |
 |----------|------|
-| Linux x64 | `gf-linux-amd64` |
-| macOS Intel | `gf-darwin-amd64` |
-| macOS Apple Silicon | `gf-darwin-arm64` |
-| Windows x64 | `gf-windows-amd64.exe` |
+| Linux x64 | `gf-linux-amd64.tar.gz` |
+| macOS Intel | `gf-darwin-amd64.tar.gz` |
+| macOS Apple Silicon | `gf-darwin-arm64.tar.gz` |
+| Windows x64 | `gf-windows-amd64.tar.gz` |
 
 ```bash
 # Linux/macOS example
+tar -xzf gf-linux-amd64.tar.gz
 chmod +x gf-linux-amd64
 sudo mv gf-linux-amd64 /usr/local/bin/gf
 ```
 
-**Build from source (GitHub):**
+**Build from source:**
 ```bash
 git clone https://github.com/josinSbazin/gf.git && cd gf && go build -o gf .
 ```
 
-**Build from source (GitFlic):**
-```bash
-git clone https://gitflic.ru/project/uply-dev/gf.git && cd gf && go build -o gf .
-```
+</details>
 
 ### Quick Start
 
@@ -447,11 +459,25 @@ gf pipeline watch $PIPELINE_ID --exit-status || echo "Pipeline failed!"
 
 ### Установка
 
-**Через Go (рекомендуется):**
+**Homebrew (macOS/Linux):**
+```bash
+brew tap josinSbazin/gf
+brew install gf
+```
+
+**Scoop (Windows):**
+```powershell
+scoop bucket add gf https://github.com/josinSbazin/scoop-gf
+scoop install gf
+```
+
+**Через Go:**
 ```bash
 go install github.com/josinSbazin/gf@latest
 ```
-> Примечание: `go install` использует GitHub как реестр Go-модулей. Код дублируется на GitHub и GitFlic.
+
+<details>
+<summary>Другие способы установки</summary>
 
 **Скачать бинарник:**
 
@@ -459,26 +485,24 @@ go install github.com/josinSbazin/gf@latest
 
 | Платформа | Файл |
 |-----------|------|
-| Linux x64 | `gf-linux-amd64` |
-| macOS Intel | `gf-darwin-amd64` |
-| macOS Apple Silicon | `gf-darwin-arm64` |
-| Windows x64 | `gf-windows-amd64.exe` |
+| Linux x64 | `gf-linux-amd64.tar.gz` |
+| macOS Intel | `gf-darwin-amd64.tar.gz` |
+| macOS Apple Silicon | `gf-darwin-arm64.tar.gz` |
+| Windows x64 | `gf-windows-amd64.tar.gz` |
 
 ```bash
 # Пример для Linux/macOS
+tar -xzf gf-linux-amd64.tar.gz
 chmod +x gf-linux-amd64
 sudo mv gf-linux-amd64 /usr/local/bin/gf
 ```
 
-**Сборка из исходников (GitHub):**
+**Сборка из исходников:**
 ```bash
 git clone https://github.com/josinSbazin/gf.git && cd gf && go build -o gf .
 ```
 
-**Сборка из исходников (GitFlic):**
-```bash
-git clone https://gitflic.ru/project/uply-dev/gf.git && cd gf && go build -o gf .
-```
+</details>
 
 ### Быстрый старт
 
