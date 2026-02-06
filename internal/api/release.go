@@ -14,17 +14,18 @@ type ReleaseService struct {
 
 // Release represents a GitFlic release
 type Release struct {
-	ID           string    `json:"id"`
-	Title        string    `json:"title"`
-	Description  string    `json:"description"`
-	TagName      string    `json:"tagName"`
-	CommitID     string    `json:"commitId,omitempty"`
-	IsDraft      bool      `json:"isDraft"`
-	IsPrerelease bool      `json:"preRelease"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt,omitempty"`
-	PublishedAt  time.Time `json:"publishedAt,omitempty"`
-	Author       User      `json:"createdBy,omitempty"`
+	ID              string         `json:"id"`
+	Title           string         `json:"title"`
+	Description     string         `json:"description"`
+	TagName         string         `json:"tagName"`
+	CommitID        string         `json:"commitId,omitempty"`
+	IsDraft         bool           `json:"isDraft"`
+	IsPrerelease    bool           `json:"preRelease"`
+	CreatedAt       time.Time      `json:"createdAt"`
+	UpdatedAt       time.Time      `json:"updatedAt,omitempty"`
+	PublishedAt     time.Time      `json:"publishedAt,omitempty"`
+	Author          User           `json:"createdBy,omitempty"`
+	AttachmentFiles []ReleaseAsset `json:"attachmentFiles,omitempty"`
 }
 
 // ReleaseListResponse represents the paginated response from release list API
@@ -179,12 +180,15 @@ func (s *ReleaseService) Update(owner, project, tagName string, req *UpdateRelea
 
 // ReleaseAsset represents a file attached to a release
 type ReleaseAsset struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Size        int64     `json:"size"`
-	ContentType string    `json:"contentType"`
-	DownloadURL string    `json:"downloadUrl"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID          string `json:"uuid"`
+	Name        string `json:"name"`
+	Size        int64  `json:"size"`
+	Link        string `json:"link"`
+	ContentType string `json:"contentType,omitempty"`
+	MD5         string `json:"md5,omitempty"`
+	SHA1        string `json:"sha1,omitempty"`
+	SHA256      string `json:"sha256,omitempty"`
+	SHA512      string `json:"sha512,omitempty"`
 }
 
 // ReleaseAssetListResponse represents the response from listing assets
@@ -196,16 +200,34 @@ type ReleaseAssetListResponse struct {
 
 // ListAssets returns all assets for a release
 func (s *ReleaseService) ListAssets(owner, project, tagName string) ([]ReleaseAsset, error) {
-	path := fmt.Sprintf("/project/%s/%s/release/%s/asset",
-		url.PathEscape(owner),
-		url.PathEscape(project),
-		url.PathEscape(tagName))
-
-	var resp ReleaseAssetListResponse
-	if err := s.client.Get(path, &resp); err != nil {
+	// Get the release - attachmentFiles are included in the response
+	release, err := s.GetByUUID(owner, project, tagName)
+	if err != nil {
 		return nil, err
 	}
-	return resp.Embedded.Assets, nil
+
+	return release.AttachmentFiles, nil
+}
+
+// GetByUUID returns a release by its UUID with full details including attachments
+func (s *ReleaseService) GetByUUID(owner, project, tagName string) (*Release, error) {
+	// First get release to obtain UUID
+	releaseBasic, err := s.Get(owner, project, tagName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get full release details by UUID
+	path := fmt.Sprintf("/project/%s/%s/release/%s",
+		url.PathEscape(owner),
+		url.PathEscape(project),
+		url.PathEscape(releaseBasic.ID))
+
+	var release Release
+	if err := s.client.Get(path, &release); err != nil {
+		return nil, err
+	}
+	return &release, nil
 }
 
 // GetAssetDownloadURL returns the download URL for an asset
@@ -240,24 +262,62 @@ func (s *ReleaseService) UploadAsset(owner, project, tagName, fileName string, f
 	return &asset, nil
 }
 
-// DeleteAsset deletes a release asset
+// DeleteAsset deletes a release asset by name
 func (s *ReleaseService) DeleteAsset(owner, project, tagName, assetName string) error {
-	path := fmt.Sprintf("/project/%s/%s/release/%s/asset/%s",
+	// Get release with attachments to find asset UUID
+	release, err := s.GetByUUID(owner, project, tagName)
+	if err != nil {
+		return err
+	}
+
+	// Find asset by name
+	var assetUUID string
+	for _, asset := range release.AttachmentFiles {
+		if asset.Name == assetName {
+			assetUUID = asset.ID
+			break
+		}
+	}
+	if assetUUID == "" {
+		return ErrNotFound
+	}
+
+	// GitFlic API: DELETE /project/{owner}/{project}/release/{releaseUuid}/file/{fileUuid}
+	path := fmt.Sprintf("/project/%s/%s/release/%s/file/%s",
 		url.PathEscape(owner),
 		url.PathEscape(project),
-		url.PathEscape(tagName),
-		url.PathEscape(assetName))
+		url.PathEscape(release.ID),
+		url.PathEscape(assetUUID))
 
 	return s.client.Delete(path)
 }
 
-// DownloadAsset downloads a release asset
+// DownloadAsset downloads a release asset by name
 func (s *ReleaseService) DownloadAsset(owner, project, tagName, assetName string) (io.ReadCloser, string, error) {
-	path := fmt.Sprintf("/project/%s/%s/release/%s/asset/%s/download",
+	// Get release with attachments to find asset UUID
+	release, err := s.GetByUUID(owner, project, tagName)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Find asset by name
+	var assetUUID string
+	for _, asset := range release.AttachmentFiles {
+		if asset.Name == assetName {
+			assetUUID = asset.ID
+			break
+		}
+	}
+	if assetUUID == "" {
+		return nil, "", ErrNotFound
+	}
+
+	// GitFlic API: GET /project/{owner}/{project}/release/{releaseUuid}/file/{fileUuid}
+	path := fmt.Sprintf("/project/%s/%s/release/%s/file/%s",
 		url.PathEscape(owner),
 		url.PathEscape(project),
-		url.PathEscape(tagName),
-		url.PathEscape(assetName))
+		url.PathEscape(release.ID),
+		url.PathEscape(assetUUID))
 
 	return s.client.DownloadFile(path)
 }

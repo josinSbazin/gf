@@ -81,27 +81,58 @@ func runList(opts *listOptions) error {
 	}
 
 	// Print table
-	fmt.Printf("\n%-36s %-8s %-40s %s\n", "ID", "ACTIVE", "URL", "EVENTS")
+	fmt.Printf("\n%-36s %-50s %s\n", "ID", "URL", "EVENTS")
 	fmt.Println(strings.Repeat("-", 100))
 
 	for _, w := range webhooks {
-		active := "✗"
-		if w.Active {
-			active = "✓"
-		}
-
 		urlStr := w.URL
-		if len(urlStr) > 38 {
-			urlStr = urlStr[:38] + "..."
+		if len(urlStr) > 48 {
+			urlStr = urlStr[:48] + "..."
 		}
 
-		events := strings.Join(w.Events, ", ")
-		if len(events) > 20 {
-			events = events[:20] + "..."
+		events := eventsToString(w.Events)
+		if len(events) > 30 {
+			events = events[:30] + "..."
 		}
 
-		fmt.Printf("%-36s %-8s %-40s %s\n", w.ID, active, urlStr, events)
+		fmt.Printf("%-36s %-50s %s\n", w.ID, urlStr, events)
 	}
 
 	return nil
+}
+
+// eventsToString converts WebhookEvents to a readable string
+func eventsToString(e *api.WebhookEvents) string {
+	if e == nil {
+		return ""
+	}
+	var events []string
+	if e.Push {
+		events = append(events, "push")
+	}
+	if e.MergeRequestCreate || e.MergeRequestUpdate || e.Merge {
+		events = append(events, "merge_request")
+	}
+	if e.IssueCreate || e.IssueUpdate {
+		events = append(events, "issue")
+	}
+	if e.ReleaseCreate || e.ReleaseUpdate || e.ReleaseDelete {
+		events = append(events, "release")
+	}
+	if e.PipelineNew || e.PipelineSuccess || e.PipelineFail {
+		events = append(events, "pipeline")
+	}
+	if e.TagCreate || e.TagDelete {
+		events = append(events, "tag")
+	}
+	if e.BranchCreate || e.BranchUpdate || e.BranchDelete {
+		events = append(events, "branch")
+	}
+	if e.CollaboratorAdd || e.CollaboratorDelete {
+		events = append(events, "collaborator")
+	}
+	if e.DiscussionCreate {
+		events = append(events, "discussion")
+	}
+	return strings.Join(events, ", ")
 }

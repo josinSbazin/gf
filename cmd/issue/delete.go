@@ -95,6 +95,10 @@ func runDeleteIssue(opts *deleteOptions, id int) error {
 	// Delete issue
 	err = client.Issues().Delete(repo.Owner, repo.Name, id)
 	if err != nil {
+		if api.IsMethodNotAllowed(err) {
+			return fmt.Errorf("issue deletion is not supported by GitFlic API\nUse the web interface: https://%s/%s/%s/issue/%d",
+				cfg.ActiveHost, repo.Owner, repo.Name, id)
+		}
 		if api.IsForbidden(err) {
 			return fmt.Errorf("permission denied: you don't have access to delete issues in %s", repo.FullName())
 		}

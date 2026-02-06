@@ -112,9 +112,16 @@ func runCreate(opts *createOptions, name string) error {
 		TagName: name,
 		Message: opts.message,
 	}
-	// Simple heuristic: 40-char hex string = commit hash
+
+	// Heuristic to detect commit hashes:
+	// - Full hash: exactly 40 hex characters
+	// - Short hash: 7-39 hex characters (not supported by API)
+	// - Branch name: everything else
 	if len(ref) == 40 && isHexString(ref) {
 		req.CommitID = ref
+	} else if len(ref) >= 7 && len(ref) < 40 && isHexString(ref) {
+		// Short commit hash detected - API requires full hash
+		return fmt.Errorf("short commit hash %q not supported by GitFlic API\nUse full 40-character hash or branch name", ref)
 	} else {
 		req.BranchName = ref
 	}

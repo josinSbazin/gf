@@ -13,19 +13,19 @@ type WebhookService struct {
 
 // Webhook represents a GitFlic webhook
 type Webhook struct {
-	ID        string    `json:"id"`
-	URL       string    `json:"url"`
-	Active    bool      `json:"active"`
-	Secret    string    `json:"secret,omitempty"`
-	Events    []string  `json:"events"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID        string         `json:"id"`
+	URL       string         `json:"url"`
+	Secret    string         `json:"secret,omitempty"`
+	Events    *WebhookEvents `json:"events"`
+	ProjectID string         `json:"projectId,omitempty"`
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
 }
 
 // WebhookListResponse represents the paginated response from webhook list API
 type WebhookListResponse struct {
 	Embedded struct {
-		Webhooks []Webhook `json:"webhookModelList"`
+		Webhooks []Webhook `json:"webhookList"`
 	} `json:"_embedded"`
 	Page struct {
 		Size          int `json:"size"`
@@ -35,12 +35,37 @@ type WebhookListResponse struct {
 	} `json:"page"`
 }
 
+// WebhookEvents represents event flags for a webhook
+// GitFlic uses boolean flags for each event type
+type WebhookEvents struct {
+	CollaboratorAdd     bool `json:"COLLABORATOR_ADD,omitempty"`
+	CollaboratorDelete  bool `json:"COLLABORATOR_DELETE,omitempty"`
+	IssueCreate         bool `json:"ISSUE_CREATE,omitempty"`
+	IssueUpdate         bool `json:"ISSUE_UPDATE,omitempty"`
+	NewIssueNote        bool `json:"NEW_ISSUE_NOTE,omitempty"`
+	MergeRequestCreate  bool `json:"MERGE_REQUEST_CREATE,omitempty"`
+	MergeRequestUpdate  bool `json:"MERGE_REQUEST_UPDATE,omitempty"`
+	Merge               bool `json:"MERGE,omitempty"`
+	PipelineNew         bool `json:"PIPELINE_NEW,omitempty"`
+	PipelineSuccess     bool `json:"PIPELINE_SUCCESS,omitempty"`
+	PipelineFail        bool `json:"PIPELINE_FAIL,omitempty"`
+	TagCreate           bool `json:"TAG_CREATE,omitempty"`
+	TagDelete           bool `json:"TAG_DELETE,omitempty"`
+	BranchCreate        bool `json:"BRANCH_CREATE,omitempty"`
+	BranchUpdate        bool `json:"BRANCH_UPDATE,omitempty"`
+	BranchDelete        bool `json:"BRANCH_DELETE,omitempty"`
+	DiscussionCreate    bool `json:"DISCUSSION_CREATE,omitempty"`
+	Push                bool `json:"PUSH,omitempty"`
+	ReleaseCreate       bool `json:"RELEASE_CREATE,omitempty"`
+	ReleaseUpdate       bool `json:"RELEASE_UPDATE,omitempty"`
+	ReleaseDelete       bool `json:"RELEASE_DELETE,omitempty"`
+}
+
 // CreateWebhookRequest specifies parameters for creating a webhook
 type CreateWebhookRequest struct {
-	URL    string   `json:"url"`
-	Secret string   `json:"secret,omitempty"`
-	Events []string `json:"events"`
-	Active bool     `json:"active"`
+	URL    string         `json:"url"`
+	Secret string         `json:"secret"`
+	Events *WebhookEvents `json:"events"`
 }
 
 // UpdateWebhookRequest specifies parameters for updating a webhook

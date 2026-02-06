@@ -41,7 +41,7 @@ func newCreateCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&opts.repo, "repo", "R", "", "Repository (owner/name)")
 	cmd.Flags().StringVarP(&opts.title, "title", "t", "", "Issue title")
-	cmd.Flags().StringVarP(&opts.description, "body", "b", "", "Issue description")
+	cmd.Flags().StringVarP(&opts.description, "body", "b", "", "Issue description (required by GitFlic, auto-filled if empty)")
 	cmd.Flags().BoolVarP(&opts.quiet, "quiet", "q", false, "Output only the issue number")
 
 	return cmd
@@ -89,6 +89,11 @@ func runCreate(opts *createOptions) error {
 			description, _ = reader.ReadString('\n')
 			description = strings.TrimSpace(description)
 		}
+	}
+
+	// GitFlic requires non-empty description
+	if description == "" {
+		description = "No description provided"
 	}
 
 	// Create issue

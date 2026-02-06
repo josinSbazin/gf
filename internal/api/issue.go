@@ -156,16 +156,36 @@ func (s *IssueService) Create(owner, project string, req *CreateIssueRequest) (*
 	return &issue, nil
 }
 
-// Close closes an issue
+// Close closes an issue by updating its status
 func (s *IssueService) Close(owner, project string, localID int) error {
-	path := fmt.Sprintf("/project/%s/%s/issue/%d/close", owner, project, localID)
-	return s.client.Post(path, nil, nil)
+	return s.setStatus(owner, project, localID, "CLOSED")
 }
 
-// Reopen reopens a closed issue
+// Reopen reopens a closed issue by updating its status
 func (s *IssueService) Reopen(owner, project string, localID int) error {
-	path := fmt.Sprintf("/project/%s/%s/issue/%d/reopen", owner, project, localID)
-	return s.client.Post(path, nil, nil)
+	return s.setStatus(owner, project, localID, "OPEN")
+}
+
+// setStatus updates issue status via PUT /issue/{id}/edit
+func (s *IssueService) setStatus(owner, project string, localID int, statusID string) error {
+	// First get the issue to preserve existing data
+	issue, err := s.Get(owner, project, localID)
+	if err != nil {
+		return err
+	}
+
+	// GitFlic API: PUT /project/{owner}/{project}/issue/{localId}/edit
+	path := fmt.Sprintf("/project/%s/%s/issue/%d/edit", owner, project, localID)
+
+	// Build payload with existing data + new status
+	payload := map[string]interface{}{
+		"title":         issue.Title,
+		"description":   issue.Description,
+		"assignedUsers": []string{},
+		"status":        map[string]string{"id": statusID},
+	}
+
+	return s.client.Put(path, payload, nil)
 }
 
 // UpdateIssueRequest specifies parameters for updating an issue
@@ -176,10 +196,32 @@ type UpdateIssueRequest struct {
 
 // Update updates an issue
 func (s *IssueService) Update(owner, project string, localID int, req *UpdateIssueRequest) (*Issue, error) {
-	path := fmt.Sprintf("/project/%s/%s/issue/%d", owner, project, localID)
+	// First get the issue to preserve existing data
+	existing, err := s.Get(owner, project, localID)
+	if err != nil {
+		return nil, err
+	}
+
+	// GitFlic API: PUT /project/{owner}/{project}/issue/{localId}/edit
+	path := fmt.Sprintf("/project/%s/%s/issue/%d/edit", owner, project, localID)
+
+	// Build payload with existing data, override with provided values
+	payload := map[string]interface{}{
+		"title":         existing.Title,
+		"description":   existing.Description,
+		"assignedUsers": []string{},
+		"status":        map[string]string{"id": existing.Status.ID},
+	}
+
+	if req.Title != "" {
+		payload["title"] = req.Title
+	}
+	if req.Description != "" {
+		payload["description"] = req.Description
+	}
 
 	var issue Issue
-	if err := s.client.Put(path, req, &issue); err != nil {
+	if err := s.client.Put(path, payload, &issue); err != nil {
 		return nil, err
 	}
 	return &issue, nil
@@ -187,7 +229,8 @@ func (s *IssueService) Update(owner, project string, localID int, req *UpdateIss
 
 // Delete deletes an issue
 func (s *IssueService) Delete(owner, project string, localID int) error {
-	path := fmt.Sprintf("/project/%s/%s/issue/%d", owner, project, localID)
+	// GitFlic API: DELETE /project/{owner}/{project}/issue/{localId}/delete
+	path := fmt.Sprintf("/project/%s/%s/issue/%d/delete", owner, project, localID)
 	return s.client.Delete(path)
 }
 

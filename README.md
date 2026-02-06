@@ -839,6 +839,33 @@ gf completion powershell | Out-String | Invoke-Expression
 
 ---
 
+## Changelog
+
+### v0.2.0
+
+**Bug Fixes:**
+- **webhook create**: Fixed 422 error - API expects `events` as object with boolean flags, not array; auto-generate secret if not provided
+- **webhook list**: Fixed empty list - corrected JSON key from `webhookModelList` to `webhookList`
+- **issue create**: Fixed 422 error when `--body ""` - GitFlic requires non-empty description, now auto-fills with "No description provided"
+- **release download**: Fixed 404 error - assets are now fetched from release's `attachmentFiles` field instead of non-existent endpoint
+- **tag create --ref**: Added clear error message for short commit hashes (API requires full 40-character hash)
+- **tag delete / branch delete**: Use `git push --delete` fallback since GitFlic API returns 405
+
+**Improvements:**
+- Better error messages for webhook events validation
+- Auto-generated webhook secrets are displayed after creation
+- Improved "no assets" message with helpful instructions
+
+### v0.1.0
+
+Initial release with full GitFlic CLI functionality:
+- Auth, MR, Issues, Releases, Pipelines, Branches, Tags, Commits, Files, Webhooks
+- JSON output for scripting
+- Shell completion
+- Multi-host support
+
+---
+
 ## License
 
 MIT

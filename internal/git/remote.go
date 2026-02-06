@@ -245,3 +245,42 @@ func DefaultBranch() (string, error) {
 
 	return "main", nil // default fallback
 }
+
+// FindGitflicRemote finds a git remote that points to GitFlic
+// Returns remote name (prefers "origin" if it points to gitflic)
+func FindGitflicRemote() (string, error) {
+	output, err := runGit("remote", "-v")
+	if err != nil {
+		return "", errors.New("failed to list remotes: not a git repository")
+	}
+
+	var firstGitflic string
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		remoteName := fields[0]
+		remoteURL := fields[1]
+
+		if strings.Contains(remoteURL, "gitflic.ru") || strings.Contains(remoteURL, "gitflic") {
+			if remoteName == "origin" {
+				return "origin", nil
+			}
+			if firstGitflic == "" {
+				firstGitflic = remoteName
+			}
+		}
+	}
+
+	if firstGitflic != "" {
+		return firstGitflic, nil
+	}
+
+	// Fallback to origin if no gitflic remote found
+	if runGitCheck("remote", "get-url", "origin") {
+		return "origin", nil
+	}
+
+	return "", ErrNoRemote
+}

@@ -54,6 +54,15 @@ func IsForbidden(err error) bool {
 	return errors.Is(err, ErrForbidden)
 }
 
+// IsMethodNotAllowed returns true if the error is a 405
+func IsMethodNotAllowed(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == 405
+	}
+	return false
+}
+
 // ExitError is returned when a command wants to exit with a specific code
 // This allows proper cleanup via defer statements
 type ExitError struct {

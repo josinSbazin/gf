@@ -96,7 +96,11 @@ func runDownload(opts *downloadOptions, tagName, assetName string) error {
 	}
 
 	if len(assets) == 0 {
-		fmt.Printf("No assets in release %s\n", tagName)
+		fmt.Printf("No assets in release %s\n\n", tagName)
+		fmt.Println("Assets are files attached to a release (binaries, archives, etc.).")
+		fmt.Println("To add assets, use: gf release upload <tag> <file>")
+		fmt.Printf("Or upload via web: https://%s/project/%s/%s/release/tag/%s\n",
+			cfg.ActiveHost, repo.Owner, repo.Name, tagName)
 		return nil
 	}
 

@@ -1,6 +1,8 @@
 package webhook
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"os"
@@ -16,10 +18,9 @@ type createOptions struct {
 	repo   string
 	events []string
 	secret string
-	active bool
 }
 
-// Available webhook events
+// Available webhook events (short names for CLI)
 var availableEvents = []string{
 	"push",
 	"merge_request",
@@ -28,19 +29,21 @@ var availableEvents = []string{
 	"pipeline",
 	"tag",
 	"branch",
+	"collaborator",
+	"discussion",
 }
 
 func newCreateCmd() *cobra.Command {
-	opts := &createOptions{
-		active: true,
-	}
+	opts := &createOptions{}
 
 	cmd := &cobra.Command{
 		Use:   "create <url>",
 		Short: "Create a webhook",
 		Long: fmt.Sprintf(`Create a new webhook in the repository.
 
-Available events: %s`, strings.Join(availableEvents, ", ")),
+Available events: %s
+
+If --secret is not provided, a random secret will be generated.`, strings.Join(availableEvents, ", ")),
 		Example: `  # Create webhook for push events
   gf webhook create https://example.com/webhook --events push
 
@@ -57,8 +60,7 @@ Available events: %s`, strings.Join(availableEvents, ", ")),
 
 	cmd.Flags().StringVarP(&opts.repo, "repo", "R", "", "Repository (owner/name)")
 	cmd.Flags().StringSliceVarP(&opts.events, "events", "e", []string{"push"}, "Events to trigger webhook (comma-separated)")
-	cmd.Flags().StringVarP(&opts.secret, "secret", "s", "", "Webhook secret for signature verification")
-	cmd.Flags().BoolVar(&opts.active, "active", true, "Whether the webhook is active")
+	cmd.Flags().StringVarP(&opts.secret, "secret", "s", "", "Webhook secret for signature verification (auto-generated if not provided)")
 
 	return cmd
 }
@@ -82,6 +84,15 @@ func runCreate(opts *createOptions, webhookURL string) error {
 		}
 	}
 
+	// Generate secret if not provided
+	secret := opts.secret
+	if secret == "" {
+		secret = generateSecret()
+	}
+
+	// Build events object
+	events := buildEventsObject(opts.events)
+
 	// Get repository
 	repo, err := git.ResolveRepo(opts.repo, config.DefaultHost())
 	if err != nil {
@@ -104,9 +115,8 @@ func runCreate(opts *createOptions, webhookURL string) error {
 	// Create webhook
 	webhook, err := client.Webhooks().Create(repo.Owner, repo.Name, &api.CreateWebhookRequest{
 		URL:    webhookURL,
-		Events: opts.events,
-		Secret: opts.secret,
-		Active: opts.active,
+		Secret: secret,
+		Events: events,
 	})
 	if err != nil {
 		if api.IsForbidden(err) {
@@ -117,7 +127,10 @@ func runCreate(opts *createOptions, webhookURL string) error {
 
 	fmt.Printf("✓ Created webhook %s\n", webhook.ID)
 	fmt.Printf("  URL: %s\n", webhook.URL)
-	fmt.Printf("  Events: %s\n", strings.Join(webhook.Events, ", "))
+	if opts.secret == "" {
+		fmt.Printf("  Secret: %s\n", secret)
+	}
+	fmt.Printf("  Events: %s\n", strings.Join(opts.events, ", "))
 	return nil
 }
 
@@ -128,4 +141,54 @@ func isValidEvent(event string) bool {
 		}
 	}
 	return false
+}
+
+// generateSecret creates a random 32-character hex secret
+func generateSecret() string {
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to a simple default if crypto/rand fails
+		return "gf-webhook-secret"
+	}
+	return hex.EncodeToString(bytes)
+}
+
+// buildEventsObject converts CLI event names to GitFlic API format
+func buildEventsObject(events []string) *api.WebhookEvents {
+	e := &api.WebhookEvents{}
+	for _, event := range events {
+		switch strings.ToLower(event) {
+		case "push":
+			e.Push = true
+		case "merge_request":
+			e.MergeRequestCreate = true
+			e.MergeRequestUpdate = true
+			e.Merge = true
+		case "issue":
+			e.IssueCreate = true
+			e.IssueUpdate = true
+			e.NewIssueNote = true
+		case "release":
+			e.ReleaseCreate = true
+			e.ReleaseUpdate = true
+			e.ReleaseDelete = true
+		case "pipeline":
+			e.PipelineNew = true
+			e.PipelineSuccess = true
+			e.PipelineFail = true
+		case "tag":
+			e.TagCreate = true
+			e.TagDelete = true
+		case "branch":
+			e.BranchCreate = true
+			e.BranchUpdate = true
+			e.BranchDelete = true
+		case "collaborator":
+			e.CollaboratorAdd = true
+			e.CollaboratorDelete = true
+		case "discussion":
+			e.DiscussionCreate = true
+		}
+	}
+	return e
 }
