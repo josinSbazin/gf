@@ -3,7 +3,6 @@ package release
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 
 	"github.com/josinSbazin/gf/internal/api"
 	"github.com/josinSbazin/gf/internal/browser"
@@ -117,9 +116,9 @@ func runView(opts *viewOptions, tagName string) error {
 
 	fmt.Println()
 
-	// URL (encode tag for special characters like + in semver)
+	// URL - GitFlic uses release UUID in web URLs, not tag name
 	releaseURL := fmt.Sprintf("https://%s/project/%s/%s/release/%s",
-		repo.Host, repo.Owner, repo.Name, url.PathEscape(release.TagName))
+		repo.Host, repo.Owner, repo.Name, release.ID)
 
 	if opts.web {
 		fmt.Printf("Opening %s in browser...\n", releaseURL)

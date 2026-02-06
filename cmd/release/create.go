@@ -3,7 +3,6 @@ package release
 import (
 	"bufio"
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 
@@ -128,8 +127,9 @@ func runCreate(opts *createOptions, tagName string) error {
 	}
 
 	fmt.Printf("%s '%s' created for tag %s\n", releaseType, release.Title, release.TagName)
+	// GitFlic uses release UUID in web URLs, not tag name
 	fmt.Printf("https://%s/project/%s/%s/release/%s\n",
-		repo.Host, repo.Owner, repo.Name, url.PathEscape(release.TagName))
+		repo.Host, repo.Owner, repo.Name, release.ID)
 
 	return nil
 }
