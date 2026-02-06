@@ -1,6 +1,7 @@
 package mr
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 type viewOptions struct {
 	repo string
+	json bool
 	web  bool
 }
 
@@ -27,6 +29,9 @@ func newViewCmd() *cobra.Command {
 		Long:  `View details of a merge request.`,
 		Example: `  # View merge request #12
   gf mr view 12
+
+  # View as JSON
+  gf mr view 12 --json
 
   # Open in browser
   gf mr view 12 --web`,
@@ -41,6 +46,7 @@ func newViewCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&opts.repo, "repo", "R", "", "Repository (owner/name)")
+	cmd.Flags().BoolVar(&opts.json, "json", false, "Output as JSON")
 	cmd.Flags().BoolVarP(&opts.web, "web", "w", false, "Open in browser")
 
 	return cmd
@@ -73,6 +79,16 @@ func runView(opts *viewOptions, id int) error {
 			return fmt.Errorf("merge request #%d not found", id)
 		}
 		return fmt.Errorf("failed to get merge request: %w", err)
+	}
+
+	// JSON output
+	if opts.json {
+		data, err := json.MarshalIndent(mr, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(data))
+		return nil
 	}
 
 	// Print details

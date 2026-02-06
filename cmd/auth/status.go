@@ -86,10 +86,12 @@ func checkHost(hostname string, host *config.Host) error {
 
 	fmt.Printf("  ✓ Logged in as %s\n", user.Username)
 
-	// Show masked token
+	// Show masked token (only first 4 chars for security)
 	token := host.Token
 	if len(token) > 8 {
-		fmt.Printf("  ✓ Token: %s...%s\n", token[:4], token[len(token)-4:])
+		fmt.Printf("  ✓ Token: %s••••••••\n", token[:4])
+	} else if len(token) > 0 {
+		fmt.Printf("  ✓ Token: ••••••••\n")
 	}
 
 	return nil

@@ -12,6 +12,13 @@ import (
 const (
 	configDir  = ".gf"
 	configFile = "config.json"
+
+	// DefaultHostname is the default GitFlic cloud hostname
+	DefaultHostname = "gitflic.ru"
+	// DefaultAPIHost is the API subdomain for GitFlic cloud
+	DefaultAPIHost = "api.gitflic.ru"
+	// DefaultAPIBaseURL is the full API base URL (pre-computed to avoid concatenation)
+	DefaultAPIBaseURL = "https://" + DefaultAPIHost
 )
 
 var (
@@ -21,16 +28,28 @@ var (
 	ErrInternalIP  = errors.New("hostname resolves to internal IP address")
 )
 
-// internalIPRanges defines private/internal IP ranges (RFC 1918, RFC 5737, etc.)
-var internalIPRanges = []string{
-	"10.0.0.0/8",     // Class A private
-	"172.16.0.0/12",  // Class B private
-	"192.168.0.0/16", // Class C private
-	"127.0.0.0/8",    // Loopback
-	"169.254.0.0/16", // Link-local
-	"::1/128",        // IPv6 loopback
-	"fc00::/7",       // IPv6 private
-	"fe80::/10",      // IPv6 link-local
+// internalIPNetworks holds pre-parsed CIDR networks for performance
+// Initialized once at package load time
+var internalIPNetworks []*net.IPNet
+
+func init() {
+	// Pre-parse CIDR ranges for internal IP detection (RFC 1918, RFC 5737, etc.)
+	cidrRanges := []string{
+		"10.0.0.0/8",     // Class A private
+		"172.16.0.0/12",  // Class B private
+		"192.168.0.0/16", // Class C private
+		"127.0.0.0/8",    // Loopback
+		"169.254.0.0/16", // Link-local
+		"::1/128",        // IPv6 loopback
+		"fc00::/7",       // IPv6 private
+		"fe80::/10",      // IPv6 link-local
+	}
+	for _, cidr := range cidrRanges {
+		_, network, err := net.ParseCIDR(cidr)
+		if err == nil {
+			internalIPNetworks = append(internalIPNetworks, network)
+		}
+	}
 }
 
 // IsInternalHost checks if hostname resolves to an internal/private IP.
@@ -58,12 +77,8 @@ func IsInternalHost(hostname string) bool {
 		ip = ips[0]
 	}
 
-	// Check against internal ranges
-	for _, cidr := range internalIPRanges {
-		_, network, err := net.ParseCIDR(cidr)
-		if err != nil {
-			continue
-		}
+	// Check against pre-parsed internal network ranges
+	for _, network := range internalIPNetworks {
 		if network.Contains(ip) {
 			return true
 		}
@@ -88,7 +103,7 @@ type Host struct {
 
 // DefaultHost returns the default GitFlic hostname
 func DefaultHost() string {
-	return "gitflic.ru"
+	return DefaultHostname
 }
 
 // ConfigPath returns the path to the config file
@@ -195,8 +210,8 @@ func (c *Config) SetHost(hostname string, host *Host) {
 
 // BaseURL returns the API base URL for the given hostname
 func BaseURL(hostname string) string {
-	if hostname == "gitflic.ru" {
-		return "https://api.gitflic.ru"
+	if hostname == DefaultHostname {
+		return DefaultAPIBaseURL
 	}
 	// For self-hosted instances
 	return "https://" + hostname + "/rest-api"

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/josinSbazin/gf/internal/api"
@@ -12,6 +13,26 @@ import (
 	"github.com/josinSbazin/gf/internal/git"
 	"github.com/spf13/cobra"
 )
+
+// validMRBranchRegex validates branch names for MR creation
+var validMRBranchRegex = regexp.MustCompile(`^[a-zA-Z0-9][-a-zA-Z0-9/_\.]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$`)
+
+// validateMRBranch checks if a branch name is valid for MR creation
+func validateMRBranch(name, branchType string) error {
+	if name == "" {
+		return fmt.Errorf("%s branch cannot be empty", branchType)
+	}
+	if strings.HasPrefix(name, "-") {
+		return fmt.Errorf("%s branch cannot start with '-'", branchType)
+	}
+	if strings.Contains(name, "..") {
+		return fmt.Errorf("%s branch cannot contain '..'", branchType)
+	}
+	if !validMRBranchRegex.MatchString(name) {
+		return fmt.Errorf("invalid %s branch name: %s", branchType, name)
+	}
+	return nil
+}
 
 type createOptions struct {
 	title        string
@@ -22,6 +43,7 @@ type createOptions struct {
 	deleteBranch bool
 	repo         string
 	web          bool
+	quiet        bool
 }
 
 func newCreateCmd() *cobra.Command {
@@ -52,6 +74,7 @@ func newCreateCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&opts.deleteBranch, "delete-branch", "d", false, "Delete source branch after merge")
 	cmd.Flags().StringVarP(&opts.repo, "repo", "R", "", "Repository (owner/name)")
 	cmd.Flags().BoolVarP(&opts.web, "web", "w", false, "Open in browser after creating")
+	cmd.Flags().BoolVarP(&opts.quiet, "quiet", "q", false, "Output only the MR number")
 
 	return cmd
 }
@@ -110,6 +133,14 @@ func runCreate(opts *createOptions) error {
 		opts.body = strings.TrimSpace(opts.body)
 	}
 
+	// Validate branch names
+	if err := validateMRBranch(opts.source, "source"); err != nil {
+		return err
+	}
+	if err := validateMRBranch(opts.target, "target"); err != nil {
+		return err
+	}
+
 	client := api.NewClient(config.BaseURL(cfg.ActiveHost), token)
 
 	// Get project info to get UUID
@@ -133,7 +164,18 @@ func runCreate(opts *createOptions) error {
 		return fmt.Errorf("failed to create merge request: %w", err)
 	}
 
-	fmt.Printf("\n✓ Created merge request #%d\n", mr.LocalID)
+	// Quiet mode - output only ID
+	if opts.quiet {
+		fmt.Printf("%d\n", mr.LocalID)
+		return nil
+	}
+
+	// Regular output with draft indication
+	if opts.draft {
+		fmt.Printf("\n✓ Created draft merge request #%d\n", mr.LocalID)
+	} else {
+		fmt.Printf("\n✓ Created merge request #%d\n", mr.LocalID)
+	}
 
 	url := fmt.Sprintf("https://%s/project/%s/%s/merge-request/%d",
 		repo.Host, repo.Owner, repo.Name, mr.LocalID)

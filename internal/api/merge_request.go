@@ -192,3 +192,80 @@ func (s *MergeRequestService) Close(owner, project string, localID int) error {
 	path := fmt.Sprintf("/project/%s/%s/merge-request/%d/close", owner, project, localID)
 	return s.client.Post(path, nil, nil)
 }
+
+// UpdateMRRequest specifies the parameters for updating a merge request
+type UpdateMRRequest struct {
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	IsDraft     *bool  `json:"workInProgress,omitempty"`
+}
+
+// Update updates a merge request
+func (s *MergeRequestService) Update(owner, project string, localID int, req *UpdateMRRequest) (*MergeRequest, error) {
+	path := fmt.Sprintf("/project/%s/%s/merge-request/%d", owner, project, localID)
+
+	var mr MergeRequest
+	if err := s.client.Put(path, req, &mr); err != nil {
+		return nil, err
+	}
+	return &mr, nil
+}
+
+// Reopen reopens a closed merge request
+func (s *MergeRequestService) Reopen(owner, project string, localID int) error {
+	path := fmt.Sprintf("/project/%s/%s/merge-request/%d/reopen", owner, project, localID)
+	return s.client.Post(path, nil, nil)
+}
+
+// MRDiscussion represents a discussion thread on a merge request
+type MRDiscussion struct {
+	ID        string    `json:"id"`
+	Message   string    `json:"message"`
+	Author    User      `json:"createdBy"`
+	CreatedAt time.Time `json:"createdAt"`
+	Resolved  bool      `json:"resolved"`
+	// Line comment fields (optional)
+	NewLine *int    `json:"newLine,omitempty"`
+	OldLine *int    `json:"oldLine,omitempty"`
+	NewPath *string `json:"newPath,omitempty"`
+	OldPath *string `json:"oldPath,omitempty"`
+}
+
+// MRDiscussionListResponse represents the response from listing discussions
+type MRDiscussionListResponse struct {
+	Embedded struct {
+		Discussions []MRDiscussion `json:"mergeRequestDiscussionModelList"`
+	} `json:"_embedded"`
+}
+
+// ListDiscussions returns all discussions for a merge request
+func (s *MergeRequestService) ListDiscussions(owner, project string, localID int) ([]MRDiscussion, error) {
+	path := fmt.Sprintf("/project/%s/%s/merge-request/%d/discussions", owner, project, localID)
+
+	var resp MRDiscussionListResponse
+	if err := s.client.Get(path, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Embedded.Discussions, nil
+}
+
+// CreateDiscussionRequest specifies parameters for creating a discussion
+type CreateDiscussionRequest struct {
+	Message string `json:"message"`
+	// Optional: for line-specific comments
+	NewLine *int    `json:"newLine,omitempty"`
+	OldLine *int    `json:"oldLine,omitempty"`
+	NewPath *string `json:"newPath,omitempty"`
+	OldPath *string `json:"oldPath,omitempty"`
+}
+
+// CreateDiscussion creates a new discussion on a merge request
+func (s *MergeRequestService) CreateDiscussion(owner, project string, localID int, req *CreateDiscussionRequest) (*MRDiscussion, error) {
+	path := fmt.Sprintf("/project/%s/%s/merge-request/%d/discussions/create", owner, project, localID)
+
+	var discussion MRDiscussion
+	if err := s.client.Post(path, req, &discussion); err != nil {
+		return nil, err
+	}
+	return &discussion, nil
+}

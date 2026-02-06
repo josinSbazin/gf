@@ -15,31 +15,31 @@ func TestFlexTime_UnmarshalJSON(t *testing.T) {
 	}{
 		{
 			name:    "RFC3339 with timezone",
-			input:   `"2026-02-05T18:17:51.081636Z"`,
+			input:   `"2024-02-05T18:17:51.081636Z"`,
 			wantErr: false,
 			check: func(ft FlexTime) bool {
-				return ft.Year() == 2026 && ft.Month() == 2 && ft.Day() == 5
+				return ft.Year() == 2024 && ft.Month() == 2 && ft.Day() == 5
 			},
 		},
 		{
 			name:    "RFC3339 with offset",
-			input:   `"2026-02-05T18:17:51+03:00"`,
+			input:   `"2024-02-05T18:17:51+03:00"`,
 			wantErr: false,
 			check: func(ft FlexTime) bool {
-				return ft.Year() == 2026 && ft.Month() == 2
+				return ft.Year() == 2024 && ft.Month() == 2
 			},
 		},
 		{
 			name:    "without timezone microseconds",
-			input:   `"2026-02-05T18:17:51.081636"`,
+			input:   `"2024-02-05T18:17:51.081636"`,
 			wantErr: false,
 			check: func(ft FlexTime) bool {
-				return ft.Year() == 2026 && ft.Hour() == 18
+				return ft.Year() == 2024 && ft.Hour() == 18
 			},
 		},
 		{
 			name:    "without timezone no microseconds",
-			input:   `"2026-02-05T18:17:51"`,
+			input:   `"2024-02-05T18:17:51"`,
 			wantErr: false,
 			check: func(ft FlexTime) bool {
 				return ft.Minute() == 17 && ft.Second() == 51
@@ -99,8 +99,8 @@ func TestFlexTime_InStruct(t *testing.T) {
 	}
 
 	input := `{
-		"createdAt": "2026-02-05T18:17:51.081636",
-		"finishedAt": "2026-02-05T19:00:00Z"
+		"createdAt": "2024-02-05T18:17:51.081636",
+		"finishedAt": "2024-02-05T19:00:00Z"
 	}`
 
 	var ts TestStruct
@@ -108,8 +108,8 @@ func TestFlexTime_InStruct(t *testing.T) {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
-	if ts.CreatedAt.Year() != 2026 {
-		t.Errorf("CreatedAt year = %d, want 2026", ts.CreatedAt.Year())
+	if ts.CreatedAt.Year() != 2024 {
+		t.Errorf("CreatedAt year = %d, want 2024", ts.CreatedAt.Year())
 	}
 
 	if ts.FinishedAt == nil {
@@ -141,7 +141,7 @@ func TestFlexTime_NilPointer(t *testing.T) {
 
 func TestFlexTime_AccessTimeField(t *testing.T) {
 	var ft FlexTime
-	json.Unmarshal([]byte(`"2026-02-05T12:30:45Z"`), &ft)
+	json.Unmarshal([]byte(`"2024-02-05T12:30:45Z"`), &ft)
 
 	// Test that we can access .Time field directly
 	stdTime := ft.Time
@@ -156,7 +156,7 @@ func TestFlexTime_AccessTimeField(t *testing.T) {
 
 	// Test formatting
 	formatted := ft.Format(time.RFC3339)
-	if formatted != "2026-02-05T12:30:45Z" {
-		t.Errorf("Format() = %s, want 2026-02-05T12:30:45Z", formatted)
+	if formatted != "2024-02-05T12:30:45Z" {
+		t.Errorf("Format() = %s, want 2024-02-05T12:30:45Z", formatted)
 	}
 }

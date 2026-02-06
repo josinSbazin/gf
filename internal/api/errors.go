@@ -6,10 +6,12 @@ import (
 )
 
 var (
-	ErrUnauthorized = errors.New("unauthorized: run 'gf auth login' to authenticate")
-	ErrForbidden    = errors.New("forbidden: you don't have permission to access this resource")
-	ErrNotFound     = errors.New("not found")
-	ErrNetwork      = errors.New("network error: check your connection")
+	ErrUnauthorized   = errors.New("unauthorized: run 'gf auth login' to authenticate")
+	ErrForbidden      = errors.New("forbidden: you don't have permission to access this resource")
+	ErrTokenInvalid   = errors.New("token expired or invalid: run 'gf auth login' to re-authenticate")
+	ErrNotFound       = errors.New("not found")
+	ErrNetwork        = errors.New("network error: check your connection")
+	ErrDDoSGuardBlock = errors.New("blocked by DDoS protection: retrying with fresh cookies")
 )
 
 // APIError represents an error from the GitFlic API
@@ -85,4 +87,9 @@ func IsExitError(err error) bool {
 // IsNetworkError returns true if the error is a retryable network error
 func IsNetworkError(err error) bool {
 	return errors.Is(err, ErrNetwork)
+}
+
+// IsTokenInvalid returns true if the error indicates an invalid/expired token
+func IsTokenInvalid(err error) bool {
+	return errors.Is(err, ErrTokenInvalid)
 }

@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 type listOptions struct {
 	limit int
 	repo  string
+	json  bool
 }
 
 func newListCmd() *cobra.Command {
@@ -27,14 +29,18 @@ func newListCmd() *cobra.Command {
   gf pipeline list
 
   # List with limit
-  gf pipeline list --limit 10`,
+  gf pipeline list --limit 10
+
+  # Output as JSON
+  gf pipeline list --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runList(opts)
 		},
 	}
 
-	cmd.Flags().IntVarP(&opts.limit, "limit", "L", 20, "Maximum number of results")
+	cmd.Flags().IntVarP(&opts.limit, "limit", "L", 30, "Maximum number of results")
 	cmd.Flags().StringVarP(&opts.repo, "repo", "R", "", "Repository (owner/name)")
+	cmd.Flags().BoolVar(&opts.json, "json", false, "Output as JSON")
 
 	return cmd
 }
@@ -75,12 +81,24 @@ func runList(opts *listOptions) error {
 		pipelines = pipelines[:opts.limit]
 	}
 
+	// JSON output
+	if opts.json {
+		data, err := json.MarshalIndent(pipelines, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(data))
+		return nil
+	}
+
 	// Print table
 	fmt.Printf("\n%-6s %-10s %-25s %-10s %-10s %s\n", "ID", "STATUS", "BRANCH", "SHA", "DURATION", "UPDATED")
 	fmt.Println(strings.Repeat("-", 80))
 
 	for _, p := range pipelines {
-		status := fmt.Sprintf("%s %-7s", api.StatusIcon(p.Status), p.NormalizedStatus())
+		color := api.StatusColor(p.Status)
+		reset := api.ColorReset()
+		status := fmt.Sprintf("%s%s %-7s%s", color, api.StatusIcon(p.Status), p.NormalizedStatus(), reset)
 
 		branch := p.Ref
 		if len(branch) > 22 {

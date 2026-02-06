@@ -1,12 +1,44 @@
 package git
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 )
+
+// gitTimeout is the timeout for local git operations.
+// Local git commands (rev-parse, symbolic-ref) should complete almost instantly,
+// but we set a reasonable timeout to prevent hanging on edge cases.
+const gitTimeout = 10 * time.Second
+
+// runGit executes a git command with timeout and returns the output
+func runGit(args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), gitTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", errors.New("git command timed out")
+		}
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// runGitCheck executes a git command with timeout and returns success/failure
+func runGitCheck(args ...string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), gitTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	return cmd.Run() == nil
+}
 
 var (
 	ErrNotGitRepo    = errors.New("not a git repository (or any of the parent directories)")
@@ -73,12 +105,12 @@ func DetectRepo() (*Repository, error) {
 	}
 
 	// Try to get from git remote
-	output, err := exec.Command("git", "remote", "get-url", "origin").Output()
+	output, err := runGit("remote", "get-url", "origin")
 	if err != nil {
 		return nil, ErrNotGitRepo
 	}
 
-	return parseRemoteURL(strings.TrimSpace(string(output)))
+	return parseRemoteURL(output)
 }
 
 // Pre-compiled regexes for remote URL parsing (performance optimization)
@@ -136,11 +168,11 @@ func parseRemoteURL(url string) (*Repository, error) {
 
 // CurrentBranch returns the current git branch
 func CurrentBranch() (string, error) {
-	output, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	output, err := runGit("rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
 		return "", ErrNotGitRepo
 	}
-	return strings.TrimSpace(string(output)), nil
+	return output, nil
 }
 
 // ResolveRepo resolves repository from --repo flag or git remote detection
@@ -195,11 +227,10 @@ func ParseRepoFlag(repoFlag string, defaultHost string) (*Repository, error) {
 // DefaultBranch returns the default branch (main or master)
 func DefaultBranch() (string, error) {
 	// Try to get from remote HEAD
-	output, err := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD").Output()
+	output, err := runGit("symbolic-ref", "refs/remotes/origin/HEAD")
 	if err == nil {
-		ref := strings.TrimSpace(string(output))
 		// refs/remotes/origin/main -> main
-		parts := strings.Split(ref, "/")
+		parts := strings.Split(output, "/")
 		if len(parts) > 0 {
 			return parts[len(parts)-1], nil
 		}
@@ -207,7 +238,7 @@ func DefaultBranch() (string, error) {
 
 	// Fallback: check if main or master exists
 	for _, branch := range []string{"main", "master"} {
-		if err := exec.Command("git", "rev-parse", "--verify", "refs/heads/"+branch).Run(); err == nil {
+		if runGitCheck("rev-parse", "--verify", "refs/heads/"+branch) {
 			return branch, nil
 		}
 	}

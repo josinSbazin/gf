@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -14,6 +15,13 @@ import (
 	"github.com/josinSbazin/gf/internal/git"
 	"github.com/josinSbazin/gf/internal/output"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
+)
+
+const (
+	minInterval     = 1
+	maxInterval     = 300
+	apiCallTimeout  = 30 * time.Second
 )
 
 type watchOptions struct {
@@ -55,6 +63,13 @@ func newWatchCmd() *cobra.Command {
 }
 
 func runWatch(opts *watchOptions, id int) error {
+	// Validate interval
+	if opts.interval < minInterval {
+		opts.interval = minInterval
+	} else if opts.interval > maxInterval {
+		return fmt.Errorf("interval must be between %d and %d seconds", minInterval, maxInterval)
+	}
+
 	// Get repository
 	repo, err := git.ResolveRepo(opts.repo, config.DefaultHost())
 	if err != nil {
@@ -74,15 +89,21 @@ func runWatch(opts *watchOptions, id int) error {
 
 	client := api.NewClient(config.BaseURL(cfg.ActiveHost), token)
 
+	// Check if we're in a terminal (for ANSI escape codes)
+	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
+
 	// Setup signal handler for clean exit
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigChan) // Clean up signal handler
 
 	ticker := time.NewTicker(time.Duration(opts.interval) * time.Second)
 	defer ticker.Stop()
 
-	// Initial fetch
-	finalStatus, err := displayPipeline(client, repo, id)
+	// Initial fetch with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), apiCallTimeout)
+	finalStatus, err := displayPipelineWithContext(ctx, client, repo, id)
+	cancel()
 	if err != nil {
 		return err
 	}
@@ -100,10 +121,16 @@ func runWatch(opts *watchOptions, id int) error {
 			fmt.Println("\nStopped watching.")
 			return nil
 		case <-ticker.C:
-			// Clear screen and redraw
-			fmt.Print("\033[H\033[2J")
+			// Clear screen only if TTY (avoid garbage in redirected output)
+			if isTTY {
+				fmt.Print("\033[H\033[2J")
+			} else {
+				fmt.Println("\n---") // Separator for non-TTY
+			}
 
-			finalStatus, err = displayPipeline(client, repo, id)
+			ctx, cancel := context.WithTimeout(context.Background(), apiCallTimeout)
+			finalStatus, err = displayPipelineWithContext(ctx, client, repo, id)
+			cancel()
 			if err != nil {
 				return err
 			}
@@ -117,16 +144,22 @@ func runWatch(opts *watchOptions, id int) error {
 	}
 }
 
-func displayPipeline(client *api.Client, repo *git.Repository, id int) (string, error) {
-	// Fetch pipeline
-	pipeline, err := client.Pipelines().Get(repo.Owner, repo.Name, id)
+func displayPipelineWithContext(ctx context.Context, client *api.Client, repo *git.Repository, id int) (string, error) {
+	// Fetch pipeline with context
+	pipeline, err := client.Pipelines().GetWithContext(ctx, repo.Owner, repo.Name, id)
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("API request timed out")
+		}
 		return "", fmt.Errorf("failed to get pipeline: %w", err)
 	}
 
-	// Fetch jobs
-	jobs, err := client.Pipelines().Jobs(repo.Owner, repo.Name, id)
+	// Fetch jobs with context
+	jobs, err := client.Pipelines().JobsWithContext(ctx, repo.Owner, repo.Name, id)
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("API request timed out")
+		}
 		return "", fmt.Errorf("failed to get jobs: %w", err)
 	}
 

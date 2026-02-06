@@ -141,7 +141,7 @@ func TestPipelineService_List(t *testing.T) {
 						"ref": "main",
 						"commitId": "abc123def",
 						"duration": 120,
-						"createdAt": "2026-02-05T10:00:00"
+						"createdAt": "2024-01-15T10:00:00"
 					},
 					{
 						"id": "uuid-2",
@@ -150,7 +150,7 @@ func TestPipelineService_List(t *testing.T) {
 						"ref": "feature",
 						"commitId": "def456",
 						"duration": 60,
-						"createdAt": "2026-02-05T09:00:00"
+						"createdAt": "2024-01-15T09:00:00"
 					}
 				]
 			},
@@ -280,8 +280,8 @@ func TestPipeline_JSONParsing(t *testing.T) {
 		"commitId": "3218564dfddd5071c566236d7221ecc0352b7912",
 		"ref": "master",
 		"source": "PUSH",
-		"createdAt": "2026-02-05T17:35:51.933746",
-		"finishedAt": "2026-02-05T18:17:51.081636"
+		"createdAt": "2024-01-15T17:35:51.933746",
+		"finishedAt": "2024-01-15T18:17:51.081636"
 	}`
 
 	var p Pipeline
@@ -301,7 +301,7 @@ func TestPipeline_JSONParsing(t *testing.T) {
 	if p.Duration != 2208 {
 		t.Errorf("Duration = %d", p.Duration)
 	}
-	if p.CreatedAt.Year() != 2026 {
+	if p.CreatedAt.Year() != 2024 {
 		t.Errorf("CreatedAt.Year() = %d", p.CreatedAt.Year())
 	}
 	if p.FinishedAt == nil {

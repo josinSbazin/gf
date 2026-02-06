@@ -99,17 +99,43 @@ func TestClient_HandleError_401(t *testing.T) {
 	}
 }
 
-func TestClient_HandleError_403(t *testing.T) {
+func TestClient_HandleError_403_TokenInvalid(t *testing.T) {
+	// Server returns 403 for both the resource AND /user/me
+	// This indicates the token is invalid/expired
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-token")
+	client := NewClient(server.URL, "expired-token")
+	err := client.Get("/test", nil)
+
+	if !IsTokenInvalid(err) {
+		t.Errorf("expected token invalid error, got %v", err)
+	}
+}
+
+func TestClient_HandleError_403_NoPermission(t *testing.T) {
+	// Server returns 403 for the resource, but 200 for /user/me
+	// This indicates the token is valid but user lacks permission
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/user/me" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"id": "123", "username": "testuser"})
+			return
+		}
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "valid-token")
 	err := client.Get("/test", nil)
 
 	if !IsForbidden(err) {
 		t.Errorf("expected forbidden error, got %v", err)
+	}
+	if IsTokenInvalid(err) {
+		t.Error("should not be token invalid error")
 	}
 }
 

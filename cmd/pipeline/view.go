@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 type viewOptions struct {
 	repo string
+	json bool
 	web  bool
 }
 
@@ -27,6 +29,9 @@ func newViewCmd() *cobra.Command {
 		Long:  `View details of a pipeline and its jobs.`,
 		Example: `  # View pipeline #45
   gf pipeline view 45
+
+  # View as JSON
+  gf pipeline view 45 --json
 
   # Open in browser
   gf pipeline view 45 --web`,
@@ -41,6 +46,7 @@ func newViewCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&opts.repo, "repo", "R", "", "Repository (owner/name)")
+	cmd.Flags().BoolVar(&opts.json, "json", false, "Output as JSON")
 	cmd.Flags().BoolVarP(&opts.web, "web", "w", false, "Open in browser")
 
 	return cmd
@@ -79,6 +85,23 @@ func runView(opts *viewOptions, id int) error {
 	jobs, err := client.Pipelines().Jobs(repo.Owner, repo.Name, id)
 	if err != nil {
 		return fmt.Errorf("failed to get jobs: %w", err)
+	}
+
+	// JSON output
+	if opts.json {
+		result := struct {
+			Pipeline *api.Pipeline `json:"pipeline"`
+			Jobs     []api.Job     `json:"jobs"`
+		}{
+			Pipeline: pipeline,
+			Jobs:     jobs,
+		}
+		data, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(data))
+		return nil
 	}
 
 	// Print pipeline info

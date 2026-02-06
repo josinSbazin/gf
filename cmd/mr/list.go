@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/josinSbazin/gf/internal/api"
+	"github.com/josinSbazin/gf/internal/auth"
 	"github.com/josinSbazin/gf/internal/config"
 	"github.com/josinSbazin/gf/internal/git"
 	"github.com/josinSbazin/gf/internal/output"
@@ -79,7 +80,16 @@ func runList(opts *listOptions) error {
 		State: opts.state,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to list merge requests: %w", err)
+		// Try inline re-auth if token is invalid
+		if newClient, reAuthErr := auth.HandleTokenError(err, cfg.ActiveHost); reAuthErr == nil {
+			client = newClient
+			mrs, err = client.MergeRequests().List(repo.Owner, repo.Name, &api.MRListOptions{
+				State: opts.state,
+			})
+		}
+		if err != nil {
+			return fmt.Errorf("failed to list merge requests: %w", err)
+		}
 	}
 
 	// Apply limit
@@ -119,14 +129,32 @@ func runList(opts *listOptions) error {
 			title = title[:maxTitleLen] + "..."
 		}
 
+		// Safely handle empty branch name
 		branch := mr.SourceBranch.Title
-		if len(branch) > maxBranchLen {
+		if branch == "" {
+			branch = "-"
+		} else if len(branch) > maxBranchLen {
 			branch = branch[:maxBranchLen] + "..."
+		}
+
+		// State with color
+		state := mr.State()
+		color := api.MRStateColor(state)
+		reset := api.ColorReset()
+		stateIcon := "○"
+		switch state {
+		case "open":
+			stateIcon = "●"
+		case "merged":
+			stateIcon = "✓"
+		case "closed":
+			stateIcon = "✗"
 		}
 
 		updated := output.FormatRelativeTime(mr.UpdatedAt)
 
-		fmt.Printf("#%-5d %-50s %-20s @%-11s %s\n",
+		fmt.Printf("%s%s%s #%-4d %-48s %-20s @%-11s %s\n",
+			color, stateIcon, reset,
 			mr.LocalID,
 			title,
 			branch,

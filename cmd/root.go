@@ -5,9 +5,16 @@ import (
 	"os"
 
 	"github.com/josinSbazin/gf/cmd/auth"
+	"github.com/josinSbazin/gf/cmd/branch"
+	"github.com/josinSbazin/gf/cmd/commit"
+	"github.com/josinSbazin/gf/cmd/file"
+	"github.com/josinSbazin/gf/cmd/issue"
 	"github.com/josinSbazin/gf/cmd/mr"
 	"github.com/josinSbazin/gf/cmd/pipeline"
+	"github.com/josinSbazin/gf/cmd/release"
 	"github.com/josinSbazin/gf/cmd/repo"
+	"github.com/josinSbazin/gf/cmd/tag"
+	"github.com/josinSbazin/gf/cmd/webhook"
 	"github.com/josinSbazin/gf/internal/api"
 	"github.com/josinSbazin/gf/internal/version"
 	"github.com/spf13/cobra"
@@ -37,10 +44,21 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.SilenceErrors = true
+	rootCmd.AddCommand(newAPICmd())
 	rootCmd.AddCommand(auth.NewCmdAuth())
+	rootCmd.AddCommand(branch.NewCmdBranch())
+	rootCmd.AddCommand(newBrowseCmd())
+	rootCmd.AddCommand(commit.NewCmdCommit())
+	rootCmd.AddCommand(file.NewCmdFile())
+	rootCmd.AddCommand(issue.NewCmdIssue())
 	rootCmd.AddCommand(mr.NewCmdMR())
 	rootCmd.AddCommand(pipeline.NewCmdPipeline())
+	rootCmd.AddCommand(release.NewCmdRelease())
 	rootCmd.AddCommand(repo.NewCmdRepo())
+	rootCmd.AddCommand(newStatusCmd())
+	rootCmd.AddCommand(tag.NewCmdTag())
+	rootCmd.AddCommand(webhook.NewCmdWebhook())
 	rootCmd.AddCommand(newVersionCmd())
 }
 

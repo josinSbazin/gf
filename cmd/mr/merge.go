@@ -27,7 +27,10 @@ func newMergeCmd() *cobra.Command {
 		Use:   "merge <id>",
 		Short: "Merge a merge request",
 		Long:  `Merge a merge request.`,
-		Example: `  # Merge interactively
+		Example: `  # Select MR to merge interactively
+  gf mr merge
+
+  # Merge specific MR
   gf mr merge 12
 
   # Merge with squash
@@ -35,11 +38,15 @@ func newMergeCmd() *cobra.Command {
 
   # Merge without confirmation
   gf mr merge 12 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := strconv.Atoi(strings.TrimPrefix(args[0], "#"))
-			if err != nil {
-				return fmt.Errorf("invalid merge request ID: %s", args[0])
+			var id int
+			if len(args) > 0 {
+				var err error
+				id, err = strconv.Atoi(strings.TrimPrefix(args[0], "#"))
+				if err != nil {
+					return fmt.Errorf("invalid merge request ID: %s", args[0])
+				}
 			}
 			return runMerge(opts, id)
 		},
@@ -72,6 +79,46 @@ func runMerge(opts *mergeOptions, id int) error {
 	}
 
 	client := api.NewClient(config.BaseURL(cfg.ActiveHost), token)
+
+	// Interactive mode: select from open MRs if no ID provided
+	if id == 0 {
+		mrs, err := client.MergeRequests().List(repo.Owner, repo.Name, &api.MRListOptions{
+			State: "open",
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list merge requests: %w", err)
+		}
+
+		if len(mrs) == 0 {
+			return fmt.Errorf("no open merge requests in %s", repo.FullName())
+		}
+
+		fmt.Println("Open merge requests:")
+		for i, mr := range mrs {
+			if i >= 10 {
+				fmt.Printf("  ... and %d more\n", len(mrs)-10)
+				break
+			}
+			fmt.Printf("  #%-4d %s [%s → %s]\n",
+				mr.LocalID, truncateTitle(mr.Title, 40),
+				truncateTitle(mr.SourceBranch.Title, 15),
+				truncateTitle(mr.TargetBranch.Title, 15))
+		}
+
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("\nEnter MR number to merge: ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+
+		if input == "" {
+			return fmt.Errorf("no MR selected")
+		}
+
+		id, err = strconv.Atoi(strings.TrimPrefix(input, "#"))
+		if err != nil {
+			return fmt.Errorf("invalid merge request ID: %s", input)
+		}
+	}
 
 	// Get merge request first to show info
 	mr, err := client.MergeRequests().Get(repo.Owner, repo.Name, id)
@@ -122,4 +169,11 @@ func runMerge(opts *mergeOptions, id int) error {
 	}
 
 	return nil
+}
+
+func truncateTitle(s string, maxLen int) string {
+	if len(s) > maxLen {
+		return s[:maxLen-3] + "..."
+	}
+	return s
 }

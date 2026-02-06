@@ -16,6 +16,10 @@ func NewCmdPipeline() *cobra.Command {
 	cmd.AddCommand(newListCmd())
 	cmd.AddCommand(newViewCmd())
 	cmd.AddCommand(newWatchCmd())
+	cmd.AddCommand(newRetryCmd())
+	cmd.AddCommand(newCancelCmd())
+	cmd.AddCommand(newDeleteCmd())
+	cmd.AddCommand(newJobCmd())
 
 	return cmd
 }

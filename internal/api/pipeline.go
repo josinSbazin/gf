@@ -1,11 +1,19 @@
 package api
 
 import (
+	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
 	"time"
+)
+
+// Pagination constants for pipeline fallback search
+const (
+	pipelineSearchMaxPages = 5
+	pipelineSearchPageSize = 50
 )
 
 // FlexTime handles time parsing with or without timezone
@@ -37,6 +45,13 @@ func (ft *FlexTime) UnmarshalJSON(b []byte) error {
 	t, err = time.Parse("2006-01-02T15:04:05", s)
 	if err == nil {
 		ft.Time = t
+		return nil
+	}
+
+	// GitFlic sometimes returns relative time strings like "2 time.minute.multi time.ago"
+	// In this case, use current time as fallback
+	if strings.Contains(s, "time.") {
+		ft.Time = time.Now()
 		return nil
 	}
 
@@ -126,21 +141,26 @@ func (s *PipelineService) List(owner, project string) ([]Pipeline, error) {
 
 // ListWithOptions returns pipelines with pagination
 func (s *PipelineService) ListWithOptions(owner, project string, opts *PipelineListOptions) ([]Pipeline, error) {
+	return s.listWithContext(context.Background(), owner, project, opts)
+}
+
+// listWithContext is the internal implementation with context support
+func (s *PipelineService) listWithContext(ctx context.Context, owner, project string, opts *PipelineListOptions) ([]Pipeline, error) {
 	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline", owner, project)
 
 	if opts != nil && (opts.Page > 0 || opts.Size > 0) {
-		path += "?"
+		params := url.Values{}
 		if opts.Page > 0 {
-			path += fmt.Sprintf("page=%d&", opts.Page)
+			params.Set("page", fmt.Sprintf("%d", opts.Page))
 		}
 		if opts.Size > 0 {
-			path += fmt.Sprintf("size=%d&", opts.Size)
+			params.Set("size", fmt.Sprintf("%d", opts.Size))
 		}
-		path = strings.TrimSuffix(path, "&")
+		path += "?" + params.Encode()
 	}
 
 	var resp PipelineListResponse
-	if err := s.client.Get(path, &resp); err != nil {
+	if err := s.client.GetWithContext(ctx, path, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Embedded.Pipelines, nil
@@ -150,22 +170,44 @@ func (s *PipelineService) ListWithOptions(owner, project string, opts *PipelineL
 // Note: GitFlic API may not have a direct endpoint for single pipeline,
 // so we try direct access first, then fall back to list search
 func (s *PipelineService) Get(owner, project string, localID int) (*Pipeline, error) {
+	return s.GetWithContext(context.Background(), owner, project, localID)
+}
+
+// Jobs returns jobs for a pipeline
+func (s *PipelineService) Jobs(owner, project string, localID int) ([]Job, error) {
+	return s.JobsWithContext(context.Background(), owner, project, localID)
+}
+
+// JobsWithContext returns jobs for a pipeline with context support
+func (s *PipelineService) JobsWithContext(ctx context.Context, owner, project string, localID int) ([]Job, error) {
+	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d/jobs", owner, project, localID)
+
+	var resp JobListResponse
+	if err := s.client.GetWithContext(ctx, path, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Embedded.Jobs, nil
+}
+
+// GetWithContext returns a specific pipeline by localID with context support
+func (s *PipelineService) GetWithContext(ctx context.Context, owner, project string, localID int) (*Pipeline, error) {
 	// Try direct endpoint first (may not exist in all GitFlic versions)
 	directPath := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d", owner, project, localID)
 	var pipeline Pipeline
-	if err := s.client.Get(directPath, &pipeline); err == nil && pipeline.LocalID == localID {
+	if err := s.client.GetWithContext(ctx, directPath, &pipeline); err == nil && pipeline.LocalID == localID {
 		return &pipeline, nil
 	}
 
-	// Fallback: fetch recent pipelines and search
-	// Use pagination to limit data transfer - most lookups are for recent pipelines
-	const maxPages = 5
-	const pageSize = 50
+	// Fallback: search through paginated list
+	return s.findPipelineByLocalID(ctx, owner, project, localID)
+}
 
-	for page := 0; page < maxPages; page++ {
-		pipelines, err := s.ListWithOptions(owner, project, &PipelineListOptions{
+// findPipelineByLocalID searches for a pipeline by localID through paginated results
+func (s *PipelineService) findPipelineByLocalID(ctx context.Context, owner, project string, localID int) (*Pipeline, error) {
+	for page := 0; page < pipelineSearchMaxPages; page++ {
+		pipelines, err := s.listWithContext(ctx, owner, project, &PipelineListOptions{
 			Page: page,
-			Size: pageSize,
+			Size: pipelineSearchPageSize,
 		})
 		if err != nil {
 			return nil, err
@@ -177,24 +219,13 @@ func (s *PipelineService) Get(owner, project string, localID int) (*Pipeline, er
 			}
 		}
 
-		// If less than pageSize returned, we've reached the end
-		if len(pipelines) < pageSize {
+		// Reached the end of results
+		if len(pipelines) < pipelineSearchPageSize {
 			break
 		}
 	}
 
 	return nil, &APIError{StatusCode: 404, Message: fmt.Sprintf("pipeline #%d not found", localID)}
-}
-
-// Jobs returns jobs for a pipeline
-func (s *PipelineService) Jobs(owner, project string, localID int) ([]Job, error) {
-	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d/jobs", owner, project, localID)
-
-	var resp JobListResponse
-	if err := s.client.Get(path, &resp); err != nil {
-		return nil, err
-	}
-	return resp.Embedded.Jobs, nil
 }
 
 // Start starts a new pipeline
@@ -224,6 +255,53 @@ func (s *PipelineService) Restart(owner, project string, localID int) (*Pipeline
 func (s *PipelineService) Cancel(owner, project string, localID int) error {
 	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d/cancel", owner, project, localID)
 	return s.client.Post(path, nil, nil)
+}
+
+// Delete deletes a pipeline
+func (s *PipelineService) Delete(owner, project string, localID int) error {
+	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d", owner, project, localID)
+	return s.client.Delete(path)
+}
+
+// GetJob returns a specific job by localID
+func (s *PipelineService) GetJob(owner, project string, pipelineID, jobID int) (*Job, error) {
+	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d/job/%d", owner, project, pipelineID, jobID)
+
+	var job Job
+	if err := s.client.Get(path, &job); err != nil {
+		return nil, err
+	}
+	return &job, nil
+}
+
+// RestartJob restarts a job
+func (s *PipelineService) RestartJob(owner, project string, pipelineID, jobID int) (*Job, error) {
+	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d/job/%d/restart", owner, project, pipelineID, jobID)
+
+	var job Job
+	if err := s.client.Post(path, nil, &job); err != nil {
+		return nil, err
+	}
+	return &job, nil
+}
+
+// CancelJob cancels a running job
+func (s *PipelineService) CancelJob(owner, project string, pipelineID, jobID int) error {
+	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d/job/%d/cancel", owner, project, pipelineID, jobID)
+	return s.client.Post(path, nil, nil)
+}
+
+// GetJobLog returns the log output for a job
+func (s *PipelineService) GetJobLog(owner, project string, pipelineID, jobID int) (string, error) {
+	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d/job/%d/log", owner, project, pipelineID, jobID)
+
+	var log struct {
+		Content string `json:"content"`
+	}
+	if err := s.client.Get(path, &log); err != nil {
+		return "", err
+	}
+	return log.Content, nil
 }
 
 // StatusIcon returns an icon for the pipeline status
@@ -290,4 +368,38 @@ func ColorReset() string {
 		return ""
 	}
 	return "\033[0m"
+}
+
+// MRStateColor returns color for MR state
+func MRStateColor(state string) string {
+	if NoColor() {
+		return ""
+	}
+
+	switch strings.ToLower(state) {
+	case "open":
+		return "\033[32m" // green
+	case "merged":
+		return "\033[35m" // magenta
+	case "closed":
+		return "\033[31m" // red
+	default:
+		return ""
+	}
+}
+
+// IssueStateColor returns color for issue state
+func IssueStateColor(state string) string {
+	if NoColor() {
+		return ""
+	}
+
+	switch strings.ToLower(state) {
+	case "open":
+		return "\033[32m" // green
+	case "closed":
+		return "\033[31m" // red
+	default:
+		return ""
+	}
 }
