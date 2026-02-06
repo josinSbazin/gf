@@ -18,7 +18,7 @@ go install github.com/josinSbazin/gf@latest
 
 **Download binary:**
 
-Download from [GitHub Releases](https://github.com/josinSbazin/gf/releases/latest) or [GitFlic Releases](https://gitflic.ru/project/uply-dev/gf/release/74af6e22-d896-4c44-a8fd-1c6ae261412c):
+Download from [GitHub Releases](https://github.com/josinSbazin/gf/releases/latest) or [GitFlic Releases](https://gitflic.ru/project/uply-dev/gf/release):
 
 | Platform | File |
 |----------|------|
@@ -455,7 +455,7 @@ go install github.com/josinSbazin/gf@latest
 
 **Скачать бинарник:**
 
-Скачайте с [GitHub Releases](https://github.com/josinSbazin/gf/releases/latest) или [GitFlic Releases](https://gitflic.ru/project/uply-dev/gf/release/74af6e22-d896-4c44-a8fd-1c6ae261412c):
+Скачайте с [GitHub Releases](https://github.com/josinSbazin/gf/releases/latest) или [GitFlic Releases](https://gitflic.ru/project/uply-dev/gf/release):
 
 | Платформа | Файл |
 |-----------|------|
