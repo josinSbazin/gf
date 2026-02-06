@@ -848,6 +848,7 @@ gf completion powershell | Out-String | Invoke-Expression
 - **webhook list**: Fixed empty list - corrected JSON key from `webhookModelList` to `webhookList`
 - **issue create**: Fixed 422 error when `--body ""` - GitFlic requires non-empty description, now auto-fills with "No description provided"
 - **release download**: Fixed 404 error - assets are now fetched from release's `attachmentFiles` field instead of non-existent endpoint
+- **release view/upload**: Fixed wrong release returned - API returns partial matches, now filters for exact tagName
 - **tag create --ref**: Added clear error message for short commit hashes (API requires full 40-character hash)
 - **tag delete / branch delete**: Use `git push --delete` fallback since GitFlic API returns 405
 

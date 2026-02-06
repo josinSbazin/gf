@@ -95,11 +95,14 @@ func (s *ReleaseService) Get(owner, project, tagName string) (*Release, error) {
 		return nil, err
 	}
 
-	if len(resp.Embedded.Releases) == 0 {
-		return nil, ErrNotFound
+	// GitFlic API may return partial matches, so filter for exact match
+	for i := range resp.Embedded.Releases {
+		if resp.Embedded.Releases[i].TagName == tagName {
+			return &resp.Embedded.Releases[i], nil
+		}
 	}
 
-	return &resp.Embedded.Releases[0], nil
+	return nil, ErrNotFound
 }
 
 // Create creates a new release
