@@ -863,6 +863,28 @@ gf completion powershell | Out-String | Invoke-Expression
 
 ---
 
+## Works great with AI coding assistants
+
+`gf` is designed for terminal workflows, making it perfect for AI assistants like Claude Code:
+
+```bash
+# "Create a release with binaries"
+gf release create v1.0.0 -t "Release" && gf release upload v1.0.0 ./dist/app.tar.gz
+
+# "Why did the pipeline fail?"
+gf pipeline job log 45 2   # AI reads logs and suggests fixes
+
+# "Review MR #15"
+gf mr diff 15 && gf mr comment 15 -b "LGTM!" && gf mr merge 15
+
+# "Close duplicate issues"
+gf issue list --json | jq -r '.[].localId' | xargs -I {} gf issue close {}
+```
+
+Without a CLI, AI assistants can't interact with GitFlic — they can't click browser buttons or guess undocumented API formats.
+
+---
+
 ## Changelog
 
 ### v0.2.0
