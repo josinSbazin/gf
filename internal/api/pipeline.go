@@ -244,11 +244,13 @@ func (s *PipelineService) Start(owner, project string, ref string) (*Pipeline, e
 func (s *PipelineService) Restart(owner, project string, localID int) (*Pipeline, error) {
 	path := fmt.Sprintf("/project/%s/%s/cicd/pipeline/%d/restart", owner, project, localID)
 
-	var p Pipeline
-	if err := s.client.Post(path, nil, &p); err != nil {
+	// API returns empty body on restart, so don't try to decode
+	if err := s.client.Post(path, nil, nil); err != nil {
 		return nil, err
 	}
-	return &p, nil
+
+	// Fetch the pipeline info after restart
+	return s.Get(owner, project, localID)
 }
 
 // Cancel cancels a running pipeline

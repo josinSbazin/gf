@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/josinSbazin/gf/internal/cookies"
 	"github.com/josinSbazin/gf/internal/version"
 )
 
@@ -31,22 +32,42 @@ type Client struct {
 	BaseURL      string
 	Token        string
 	httpClient   *http.Client
+	cookieStore  *cookies.Store
 	cookiesMu    sync.Mutex
 	cookiesReady atomic.Bool
 }
 
-// NewClient creates a new API client with cookie jar for DDoS Guard support
+// NewClient creates a new API client with persistent cookie jar for DDoS Guard support
 func NewClient(baseURL, token string) *Client {
-	// cookiejar.New with nil options cannot return an error (Go 1.x behavior)
-	jar, _ := cookiejar.New(nil)
-	return &Client{
-		BaseURL: baseURL,
-		Token:   token,
+	// Try to use persistent cookie store
+	store, err := cookies.NewStore()
+	var jar http.CookieJar
+	if err == nil && store != nil {
+		jar = store.Jar()
+	} else {
+		// Fallback to in-memory jar
+		jar, _ = cookiejar.New(nil)
+	}
+
+	client := &Client{
+		BaseURL:     baseURL,
+		Token:       token,
+		cookieStore: store,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 			Jar:     jar,
 		},
 	}
+
+	// If we loaded cookies from disk, mark as ready
+	if store != nil {
+		u, _ := url.Parse("https://gitflic.ru")
+		if len(jar.Cookies(u)) > 0 {
+			client.cookiesReady.Store(true)
+		}
+	}
+
+	return client
 }
 
 // warmupCookies visits the main GitFlic site to obtain DDoS Guard cookies.
@@ -91,6 +112,12 @@ func (c *Client) warmupCookies(ctx context.Context) error {
 
 	c.cookiesReady.Store(true)
 
+	// Save cookies to disk for future sessions
+	if c.cookieStore != nil {
+		c.cookieStore.MarkModified()
+		c.cookieStore.Save()
+	}
+
 	if os.Getenv("GF_DEBUG") != "" {
 		fmt.Fprintf(os.Stderr, "[DEBUG] Warmed up DDoS Guard cookies from %s\n", mainSiteURL)
 	}
@@ -124,9 +151,16 @@ func (c *Client) resetCookies() {
 	c.cookiesMu.Lock()
 	defer c.cookiesMu.Unlock()
 	c.cookiesReady.Store(false)
-	// cookiejar.New with nil options cannot return an error (Go 1.x behavior)
-	jar, _ := cookiejar.New(nil)
-	c.httpClient.Jar = jar
+
+	// Clear persistent store if available
+	if c.cookieStore != nil {
+		c.cookieStore.Clear()
+		c.httpClient.Jar = c.cookieStore.Jar()
+	} else {
+		// Fallback to in-memory jar
+		jar, _ := cookiejar.New(nil)
+		c.httpClient.Jar = jar
+	}
 }
 
 // REST performs an HTTP request and decodes the JSON response
@@ -237,11 +271,18 @@ func (c *Client) doRequest(ctx context.Context, method, urlStr string, bodyData 
 			fmt.Fprintf(os.Stderr, "[DEBUG] Response body: %s\n", string(bodyBytes))
 		}
 
-		// Check if this is a DDoS Guard block (403 with AuthenticationException in body)
-		if resp.StatusCode == http.StatusForbidden && strings.Contains(string(bodyBytes), "AuthenticationException") {
-			// Reset cookies and return special error
-			c.resetCookies()
-			return ErrDDoSGuardBlock
+		// Check if this is a DDoS Guard block (403 with HTML response, not JSON)
+		// DDoS Guard returns HTML challenge page, not JSON with AuthenticationException
+		if resp.StatusCode == http.StatusForbidden {
+			// AuthenticationException = invalid/expired token, NOT DDoS Guard
+			if strings.Contains(string(bodyBytes), "AuthenticationException") {
+				return ErrTokenInvalid
+			}
+			// HTML response with no JSON = likely DDoS Guard block
+			if !strings.Contains(string(bodyBytes), "{") && strings.Contains(string(bodyBytes), "<html") {
+				c.resetCookies()
+				return ErrDDoSGuardBlock
+			}
 		}
 
 		// Reset body for handleError
@@ -253,6 +294,12 @@ func (c *Client) doRequest(ctx context.Context, method, urlStr string, bodyData 
 		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 			return fmt.Errorf("failed to decode response: %w", err)
 		}
+	}
+
+	// Save cookies after successful request
+	if c.cookieStore != nil {
+		c.cookieStore.MarkModified()
+		c.cookieStore.Save()
 	}
 
 	return nil
