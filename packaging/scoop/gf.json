@@ -1,12 +1,12 @@
 {
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "CLI for GitFlic - Russian GitHub alternative",
     "homepage": "https://github.com/josinSbazin/gf",
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/josinSbazin/gf/releases/download/v0.2.0/gf-windows-amd64.tar.gz",
-            "hash": "d6cf086be1202b72f3658a3e5fae20273cff9744f3710596e7cfcf102a47ff5a",
+            "url": "https://github.com/josinSbazin/gf/releases/download/v0.3.0/gf-windows-amd64.tar.gz",
+            "hash": "b352c83fa0861c694ab25f2d9b2f1e98ad247f9d99c4e7a309d7127267c71e94",
             "extract_dir": "",
             "bin": [["gf-windows-amd64.exe", "gf.exe"]]
         }

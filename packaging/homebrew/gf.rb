@@ -4,13 +4,13 @@
 class Gf < Formula
   desc "CLI for GitFlic - Russian GitHub alternative"
   homepage "https://github.com/josinSbazin/gf"
-  version "0.2.0"
+  version "0.3.0"
   license "MIT"
 
   on_macos do
     on_intel do
-      url "https://github.com/josinSbazin/gf/releases/download/v0.2.0/gf-darwin-amd64.tar.gz"
-      sha256 "57caad89db23937f59c7d82fceb2291cb72f60a77ac7f7496329193b09af76f2"
+      url "https://github.com/josinSbazin/gf/releases/download/v0.3.0/gf-darwin-amd64.tar.gz"
+      sha256 "cd27adc55817bd9796226d6b3893f300578010ebf250a4f7eee7de72d491bc8d"
 
       def install
         bin.install "gf-darwin-amd64" => "gf"
@@ -18,8 +18,8 @@ class Gf < Formula
     end
 
     on_arm do
-      url "https://github.com/josinSbazin/gf/releases/download/v0.2.0/gf-darwin-arm64.tar.gz"
-      sha256 "088ee35a379bcea96bef81e766780b89a3fd13b57c31f2cade86e9becaa30e9f"
+      url "https://github.com/josinSbazin/gf/releases/download/v0.3.0/gf-darwin-arm64.tar.gz"
+      sha256 "b59aeb4a836dd4cd8d47824c85c2f83ecbeee5812bd356cbae50149c249d6e80"
 
       def install
         bin.install "gf-darwin-arm64" => "gf"
@@ -29,8 +29,8 @@ class Gf < Formula
 
   on_linux do
     on_intel do
-      url "https://github.com/josinSbazin/gf/releases/download/v0.2.0/gf-linux-amd64.tar.gz"
-      sha256 "e568105698c1c3dacc72d50eba5c4019fe42651fce0922b9ea5b44c7a3c5fcd0"
+      url "https://github.com/josinSbazin/gf/releases/download/v0.3.0/gf-linux-amd64.tar.gz"
+      sha256 "67e8db072b8837ab9b83b24edb32e520d41592abe3e07bac61161ec9e4fb0910"
 
       def install
         bin.install "gf-linux-amd64" => "gf"
