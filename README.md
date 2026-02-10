@@ -121,10 +121,15 @@ gf mr edit 12 --no-draft           # Remove draft status
 gf mr diff 12                      # Show MR diff
 gf mr checkout 12                  # Checkout MR source branch locally
 
-# Comments
-gf mr comment 12                   # Add comment interactively
-gf mr comment 12 -b "LGTM!"        # Add comment with body
-gf mr comments 12                  # List all comments/discussions
+# Comments and code review
+gf mr comment 12 -b "LGTM!"        # Add general comment
+gf mr comment 12 -b "Fix this" -f main.go -l 42  # Inline comment on line 42
+gf mr comment 12 -b "Why removed?" -f utils.go --old-line 15  # Comment on removed line
+gf mr comments 12                  # List threaded comments (grouped by file)
+gf mr reply 12 -d <uuid> -b "Done" # Reply to a discussion thread
+gf mr resolve 12 -d <uuid>         # Resolve a discussion thread
+gf mr review 12 --approve -b "LGTM!" # Approve + comment in one command
+gf mr review 12 --approve          # Approve without comment
 ```
 
 #### Issues — full issue workflow
@@ -180,6 +185,7 @@ gf release create v1.0.0 --quiet         # Output only tag name
 
 # Edit and delete
 gf release edit v1.0.0 -t "New Title"    # Edit release title
+gf release edit v1.0.0 -n "Updated notes" # Edit release notes
 gf release edit v1.0.0 --no-draft        # Remove draft status
 gf release edit v1.0.0 --prerelease      # Mark as prerelease
 gf release delete v1.0.0                 # Delete release (with confirmation)
@@ -424,7 +430,13 @@ gf pipeline watch $PIPELINE_ID --exit-status || echo "Pipeline failed!"
 | `--no-draft` | | mr/release edit | Remove draft status |
 | `--prerelease` | `-p` | release create | Mark as pre-release |
 | `--quiet` | | create | Output only ID (for scripting) |
-| `--body` | `-b` | comment | Comment body |
+| `--body` | `-b` | comment, reply, review | Comment body |
+| `--file` | `-f` | mr comment | File path for inline comment |
+| `--line` | `-l` | mr comment | New-side line number for inline comment |
+| `--old-line` | | mr comment | Old-side line number for inline comment |
+| `--discussion` | `-d` | mr reply, resolve | Discussion UUID to reply/resolve |
+| `--approve` | `-a` | mr review | Approve the merge request |
+| `--notes` | `-n` | release edit | Release notes (alias for --description) |
 | `--message` | `-m` | tag create | Tag message (annotated tag) |
 | `--events` | `-e` | webhook create | Webhook events (comma-separated) |
 | `--secret` | `-s` | webhook create | Webhook secret |
@@ -570,10 +582,15 @@ gf mr edit 12 --no-draft           # Убрать статус черновик�
 gf mr diff 12                      # Показать diff MR
 gf mr checkout 12                  # Checkout ветки MR локально
 
-# Комментарии
-gf mr comment 12                   # Добавить комментарий интерактивно
-gf mr comment 12 -b "LGTM!"        # Добавить комментарий
-gf mr comments 12                  # Список всех комментариев
+# Комментарии и код-ревью
+gf mr comment 12 -b "LGTM!"        # Общий комментарий
+gf mr comment 12 -b "Исправь" -f main.go -l 42  # Инлайн-комментарий на строке 42
+gf mr comment 12 -b "Зачем убрали?" -f utils.go --old-line 15  # Комментарий на удалённой строке
+gf mr comments 12                  # Список комментариев (сгруппированы по файлам)
+gf mr reply 12 -d <uuid> -b "Готово" # Ответить в дискуссию
+gf mr resolve 12 -d <uuid>         # Зарезолвить дискуссию
+gf mr review 12 --approve -b "LGTM!" # Одобрить + комментарий одной командой
+gf mr review 12 --approve          # Одобрить без комментария
 ```
 
 #### Issues — полный workflow
@@ -629,6 +646,7 @@ gf release create v1.0.0 --quiet         # Вывести только имя т
 
 # Редактирование и удаление
 gf release edit v1.0.0 -t "Новое имя"    # Изменить title
+gf release edit v1.0.0 -n "Новые notes"  # Изменить описание
 gf release edit v1.0.0 --no-draft        # Убрать статус черновика
 gf release edit v1.0.0 --prerelease      # Пометить как prerelease
 gf release delete v1.0.0                 # Удалить (с подтверждением)
@@ -842,7 +860,13 @@ gf completion powershell | Out-String | Invoke-Expression
 | `--ref` | | branch/tag/commit/file | Ветка/тег/коммит |
 | `--draft` | | mr/release | Черновик |
 | `--quiet` | | create | Только ID |
-| `--body` | `-b` | comment | Текст комментария |
+| `--body` | `-b` | comment, reply, review | Текст комментария |
+| `--file` | `-f` | mr comment | Путь к файлу для инлайн-комментария |
+| `--line` | `-l` | mr comment | Номер строки (новая версия) |
+| `--old-line` | | mr comment | Номер строки (старая версия) |
+| `--discussion` | `-d` | mr reply, resolve | UUID дискуссии |
+| `--approve` | `-a` | mr review | Одобрить MR |
+| `--notes` | `-n` | release edit | Описание релиза (алиас --description) |
 | `--message` | `-m` | tag create | Сообщение тега |
 | `--events` | `-e` | webhook | События webhook |
 
@@ -875,7 +899,9 @@ gf release create v1.0.0 -t "Release" && gf release upload v1.0.0 ./dist/app.tar
 gf pipeline job log 45 2   # AI reads logs and suggests fixes
 
 # "Review MR #15"
-gf mr diff 15 && gf mr comment 15 -b "LGTM!" && gf mr merge 15
+gf mr diff 15                      # AI reads diff and writes review
+gf mr comment 15 -b "Fix error handling" -f main.go -l 42  # Inline comment
+gf mr review 15 --approve -b "LGTM!"  # Approve with comment
 
 # "Close duplicate issues"
 gf issue list --json | jq -r '.[].localId' | xargs -I {} gf issue close {}
@@ -886,6 +912,25 @@ Without a CLI, AI assistants can't interact with GitFlic — they can't click br
 ---
 
 ## Changelog
+
+### v0.4.0
+
+**Code Review Workflow:**
+- **`gf mr comment`**: Support inline comments with `--file`, `--line`, `--old-line`
+- **`gf mr comments`**: Threaded display grouped by file with resolved status
+- **`gf mr reply`**: Reply to existing discussion threads
+- **`gf mr resolve`**: Resolve/unresolve discussion threads
+- **`gf mr review`**: Composite approve + comment in one command
+
+**Improvements:**
+- API error messages now include full response body for validation errors (no more bare "API error 422")
+- `gf release edit` accepts `--notes/-n` as alias for `--description/-d`
+- Repo detection prefers GitFlic remote over origin when multiple remotes exist
+
+### v0.3.0
+
+**Improvements:**
+- Updated packaging and release workflow
 
 ### v0.2.0
 

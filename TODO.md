@@ -36,10 +36,15 @@
 ### Низкий приоритет
 (API endpoints not available - see "Не поддерживается API" section)
 
+## Реализовано (ранее считалось "не поддерживается") ✅
+- [x] `gf issue close` — закрытие issues
+- [x] `gf mr comment` — комментарии к MR (включая inline)
+- [x] `gf mr reply` — ответы в дискуссии
+- [x] `gf mr resolve` — резолв дискуссий
+- [x] `gf mr review` — approve + comment
+- [x] `gf issue comment` — комментарии к issues
+
 ## Не поддерживается API ❌
-- `gf issue close` — API GitFlic не поддерживает закрытие issues
-- `gf mr comment` — API комментариев к MR не найден
-- `gf issue comment` — API комментариев к issues не найден
 - `gf repo fork` — API форка не найден
 - `gf label list` — API меток не найден
 - `gf ssh-key list/add` — API SSH ключей не найден
