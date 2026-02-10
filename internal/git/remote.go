@@ -104,8 +104,13 @@ func DetectRepo() (*Repository, error) {
 		return ParseRepoFlag(repo, "gitflic.ru")
 	}
 
-	// Try to get from git remote
-	output, err := runGit("remote", "get-url", "origin")
+	// Try to find a GitFlic remote first, fallback to origin
+	remoteName, err := FindGitflicRemote()
+	if err != nil {
+		return nil, ErrNotGitRepo
+	}
+
+	output, err := runGit("remote", "get-url", remoteName)
 	if err != nil {
 		return nil, ErrNotGitRepo
 	}
