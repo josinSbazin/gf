@@ -26,6 +26,9 @@ func NewCmdMR() *cobra.Command {
 	cmd.AddCommand(newReadyCmd())
 	cmd.AddCommand(newCommentCmd())
 	cmd.AddCommand(newCommentsCmd())
+	cmd.AddCommand(newReplyCmd())
+	cmd.AddCommand(newResolveCmd())
+	cmd.AddCommand(newReviewCmd())
 
 	return cmd
 }

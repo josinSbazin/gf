@@ -217,9 +217,32 @@ func (s *MergeRequestService) Reopen(owner, project string, localID int) error {
 	return s.client.Post(path, nil, nil)
 }
 
-// MRDiscussion represents a discussion thread on a merge request
+// DiscussionNote represents a single note/comment in a discussion
+type DiscussionNote struct {
+	UUID       string    `json:"uuid"`
+	Message    string    `json:"message"`
+	RawMessage string    `json:"rawMessage"`
+	Author     User      `json:"author"`
+	CreatedAt  time.Time `json:"createdAt"`
+	Resolved   bool      `json:"resolved"`
+	Type       string    `json:"type"`
+	// Line comment fields (optional)
+	NewLine *int    `json:"newLine,omitempty"`
+	OldLine *int    `json:"oldLine,omitempty"`
+	NewPath *string `json:"newPath,omitempty"`
+	OldPath *string `json:"oldPath,omitempty"`
+}
+
+// DiscussionThread represents a root discussion with its replies
+type DiscussionThread struct {
+	RootNote DiscussionNote   `json:"rootNote"`
+	Replies  []DiscussionNote `json:"replies"`
+}
+
+// MRDiscussion represents a discussion on a merge request (legacy flat model)
 type MRDiscussion struct {
 	ID        string    `json:"id"`
+	UUID      string    `json:"uuid"`
 	Message   string    `json:"message"`
 	Author    User      `json:"createdBy"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -231,14 +254,21 @@ type MRDiscussion struct {
 	OldPath *string `json:"oldPath,omitempty"`
 }
 
-// MRDiscussionListResponse represents the response from listing discussions
+// MRDiscussionListResponse represents the flat response from listing discussions
 type MRDiscussionListResponse struct {
 	Embedded struct {
 		Discussions []MRDiscussion `json:"mergeRequestDiscussionModelList"`
 	} `json:"_embedded"`
 }
 
-// ListDiscussions returns all discussions for a merge request
+// DiscussionThreadListResponse represents the threaded response from listing discussions
+type DiscussionThreadListResponse struct {
+	Embedded struct {
+		Threads []DiscussionThread `json:"restDiscussionModelList"`
+	} `json:"_embedded"`
+}
+
+// ListDiscussions returns all discussions for a merge request (flat model)
 func (s *MergeRequestService) ListDiscussions(owner, project string, localID int) ([]MRDiscussion, error) {
 	path := fmt.Sprintf("/project/%s/%s/merge-request/%d/discussions", owner, project, localID)
 
@@ -247,6 +277,17 @@ func (s *MergeRequestService) ListDiscussions(owner, project string, localID int
 		return nil, err
 	}
 	return resp.Embedded.Discussions, nil
+}
+
+// ListDiscussionThreads returns all discussions as threads (rootNote + replies)
+func (s *MergeRequestService) ListDiscussionThreads(owner, project string, localID int) ([]DiscussionThread, error) {
+	path := fmt.Sprintf("/project/%s/%s/merge-request/%d/discussions", owner, project, localID)
+
+	var resp DiscussionThreadListResponse
+	if err := s.client.Get(path, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Embedded.Threads, nil
 }
 
 // CreateDiscussionRequest specifies parameters for creating a discussion
@@ -260,12 +301,40 @@ type CreateDiscussionRequest struct {
 }
 
 // CreateDiscussion creates a new discussion on a merge request
-func (s *MergeRequestService) CreateDiscussion(owner, project string, localID int, req *CreateDiscussionRequest) (*MRDiscussion, error) {
+func (s *MergeRequestService) CreateDiscussion(owner, project string, localID int, req *CreateDiscussionRequest) (*DiscussionNote, error) {
 	path := fmt.Sprintf("/project/%s/%s/merge-request/%d/discussions/create", owner, project, localID)
 
-	var discussion MRDiscussion
-	if err := s.client.Post(path, req, &discussion); err != nil {
+	var note DiscussionNote
+	if err := s.client.Post(path, req, &note); err != nil {
 		return nil, err
 	}
-	return &discussion, nil
+	return &note, nil
+}
+
+// ReplyDiscussionRequest specifies parameters for replying to a discussion
+type ReplyDiscussionRequest struct {
+	DiscussionUUID string `json:"discussionUuid"`
+	Message        string `json:"message"`
+}
+
+// ReplyDiscussion replies to an existing discussion thread
+func (s *MergeRequestService) ReplyDiscussion(owner, project string, localID int, req *ReplyDiscussionRequest) (*DiscussionNote, error) {
+	path := fmt.Sprintf("/project/%s/%s/merge-request/%d/discussions/reply", owner, project, localID)
+
+	var note DiscussionNote
+	if err := s.client.Post(path, req, &note); err != nil {
+		return nil, err
+	}
+	return &note, nil
+}
+
+// ResolveDiscussion resolves a discussion thread
+func (s *MergeRequestService) ResolveDiscussion(owner, project string, localID int, uuid string) (*DiscussionNote, error) {
+	path := fmt.Sprintf("/project/%s/%s/merge-request/%d/discussions/resolve/%s", owner, project, localID, uuid)
+
+	var note DiscussionNote
+	if err := s.client.Post(path, nil, &note); err != nil {
+		return nil, err
+	}
+	return &note, nil
 }
