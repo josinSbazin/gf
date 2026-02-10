@@ -540,23 +540,35 @@ func (c *Client) handleError(resp *http.Response) error {
 	case http.StatusNotFound:
 		return ErrNotFound
 	default:
+		// Read the full response body for error diagnosis
+		bodyBytes, _ := io.ReadAll(resp.Body)
+
 		// Try to parse error message from response
 		var errResp struct {
 			Message string `json:"message"`
 			Error   string `json:"error"`
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
+		if err := json.Unmarshal(bodyBytes, &errResp); err == nil {
 			msg := errResp.Message
 			if msg == "" {
 				msg = errResp.Error
 			}
-			return &APIError{
-				StatusCode: resp.StatusCode,
-				Message:    msg,
+			if msg != "" {
+				return &APIError{
+					StatusCode: resp.StatusCode,
+					Message:    msg,
+				}
 			}
+		}
+
+		// Include raw body in error for unrecognized formats (e.g. validation errors)
+		raw := strings.TrimSpace(string(bodyBytes))
+		if len(raw) > 500 {
+			raw = raw[:500] + "..."
 		}
 		return &APIError{
 			StatusCode: resp.StatusCode,
+			Message:    raw,
 		}
 	}
 }

@@ -45,6 +45,8 @@ You can update the title, description, draft status, and prerelease status.`,
 	cmd.Flags().StringVarP(&opts.repo, "repo", "R", "", "Repository (owner/name)")
 	cmd.Flags().StringVarP(&opts.title, "title", "t", "", "Release title")
 	cmd.Flags().StringVarP(&opts.description, "description", "d", "", "Release description")
+	cmd.Flags().StringVarP(&opts.description, "notes", "n", "", "Release notes (alias for --description)")
+	cmd.MarkFlagsMutuallyExclusive("description", "notes")
 	cmd.Flags().BoolVar(&opts.draft, "draft", false, "Mark as draft")
 	cmd.Flags().BoolVar(&opts.noDraft, "no-draft", false, "Remove draft status")
 	cmd.Flags().BoolVar(&opts.prerelease, "prerelease", false, "Mark as prerelease")
